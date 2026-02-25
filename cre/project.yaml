@@ -1,0 +1,9 @@
+# CRE project configuration.
+#
+# This file defines per-target RPC settings. The workflow-specific settings live in each workflow's `workflow.yaml`.
+
+mainnet-settings:
+  rpcs:
+    - chain-name: ethereum-mainnet-base-1
+      url: https://mainnet.base.org
+

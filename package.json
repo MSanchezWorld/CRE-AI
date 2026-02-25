@@ -1,0 +1,26 @@
+{
+  "name": "borrowbot",
+  "private": true,
+  "packageManager": "yarn@1.22.22",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "agent:dev": "yarn workspace @borrowbot/agent dev",
+    "web:dev": "yarn workspace @borrowbot/web dev",
+    "web:build": "yarn workspace @borrowbot/web build",
+    "contracts:compile": "yarn workspace @borrowbot/contracts hardhat compile",
+    "contracts:test": "yarn workspace @borrowbot/contracts hardhat test",
+    "contracts:deploy:base": "yarn workspace @borrowbot/contracts hardhat run scripts/deployBorrowBotBase.ts --network base",
+    "contracts:configure:base": "yarn workspace @borrowbot/contracts hardhat run scripts/configureBorrowBotBase.ts --network base",
+    "contracts:supply:base": "yarn workspace @borrowbot/contracts hardhat run scripts/supplyCollateralBase.ts --network base",
+    "contracts:wrap-weth:base": "yarn workspace @borrowbot/contracts hardhat run scripts/wrapWethBase.ts --network base",
+    "contracts:repay:base": "yarn workspace @borrowbot/contracts hardhat run scripts/repayDebtBase.ts --network base",
+    "contracts:withdraw:base": "yarn workspace @borrowbot/contracts hardhat run scripts/withdrawCollateralBase.ts --network base",
+    "contracts:reset-aave:base": "yarn workspace @borrowbot/contracts hardhat run scripts/resetAavePositionBase.ts --network base",
+    "contracts:swap-to-usdc:base": "yarn workspace @borrowbot/contracts hardhat run scripts/swapCollateralToUsdcBase.ts --network base",
+    "contracts:deposit:base": "DEPOSIT_MODE=usdc ALLOW_SWAP_DEPOSIT=false yarn workspace @borrowbot/contracts hardhat run scripts/depositToAaveBase.ts --network base",
+    "contracts:deposit-swap:base": "DEPOSIT_MODE=eth_btc ALLOW_SWAP_DEPOSIT=true yarn workspace @borrowbot/contracts hardhat run scripts/depositToAaveBase.ts --network base"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "chainSelectorName": "ethereum-mainnet-base-1",
+  "isTestnet": false,
+  "receiverAddress": "0x415090eb9EB50900D61509ddf741bCD8cb2B1353",
+  "vaultAddress": "0xf154BBca60E61B569712959Cc5D5435e27508BE2",
+  "borrowAsset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "planTtlSeconds": 300,
+  "gasLimit": "1400000",
+  "agentUrl": "http://127.0.0.1:3000/api/agent/plan",
+  "agentSecret": ""
+}

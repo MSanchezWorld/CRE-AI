@@ -1,0 +1,504 @@
+.shell {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+}
+
+.title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.link {
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.btn {
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, rgba(53, 194, 255, 0.25), rgba(124, 255, 171, 0.14));
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 860px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+}
+
+.formCard h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.labelRow label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(53, 194, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(53, 194, 255, 0.12);
+}
+
+.flow {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+}
+
+.flow h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.stepList {
+  display: grid;
+  gap: 10px;
+}
+
+.step {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 12px 12px 12px 12px;
+  overflow: hidden;
+}
+
+.step::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  background: radial-gradient(700px 220px at 10% 40%, rgba(53, 194, 255, 0.22), transparent 55%),
+    radial-gradient(700px 220px at 75% 40%, rgba(124, 255, 171, 0.12), transparent 55%);
+}
+
+.stepActive {
+  border-color: rgba(53, 194, 255, 0.35);
+}
+
+.stepActive::before {
+  opacity: 1;
+}
+
+.stepDone {
+  border-color: rgba(124, 255, 171, 0.24);
+}
+
+.stepTop {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stepTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+}
+
+.meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.desc {
+  position: relative;
+  z-index: 1;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.log {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sectionTitle {
+  margin-top: 14px;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.kvList {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kvRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.kvKey {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.kvVal {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.statusOk {
+  color: rgba(124, 255, 171, 0.9);
+}
+
+.statusWait {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.statusBad {
+  color: rgba(255, 120, 120, 0.9);
+}
+
+.tiny {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.stepProof {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.proofLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 9px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.proofLeft {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.proofRight {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.visual {
+  margin: 10px 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.visualHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 0 12px;
+}
+
+.visualTitle {
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.visualSub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.visualLegend {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.dotUsdc {
+  background: rgba(53, 194, 255, 0.92);
+  box-shadow: 0 0 0 4px rgba(53, 194, 255, 0.12);
+}
+
+.dotEth {
+  background: rgba(124, 255, 171, 0.92);
+  box-shadow: 0 0 0 4px rgba(124, 255, 171, 0.1);
+}
+
+.dotBtc {
+  background: rgba(255, 178, 74, 0.92);
+  box-shadow: 0 0 0 4px rgba(255, 178, 74, 0.1);
+}
+
+.visualCanvas {
+  position: relative;
+  height: 164px;
+  margin: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(520px 240px at 10% 10%, rgba(53, 194, 255, 0.2), transparent 65%),
+    radial-gradient(520px 240px at 90% 10%, rgba(124, 255, 171, 0.1), transparent 65%),
+    rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.visualRail {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 116px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(53, 194, 255, 0.0), rgba(53, 194, 255, 0.32), rgba(124, 255, 171, 0.18), rgba(255, 255, 255, 0.0));
+  opacity: 0.55;
+}
+
+.visualNodes {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 14px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.node {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
+  padding: 9px 10px;
+  min-height: 58px;
+}
+
+.nodeTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nodeLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.nodeStatus {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.nodeSub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.nodeActive {
+  border-color: rgba(53, 194, 255, 0.35);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.nodeOk {
+  border-color: rgba(124, 255, 171, 0.24);
+}
+
+.nodeWait {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.token {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  transition: left 850ms cubic-bezier(0.22, 1, 0.36, 1), top 850ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+
+.tokenUsdc {
+  background: rgba(53, 194, 255, 0.95);
+  box-shadow: 0 0 0 6px rgba(53, 194, 255, 0.1), 0 10px 26px rgba(53, 194, 255, 0.16);
+}
+
+.tokenEth {
+  background: rgba(124, 255, 171, 0.95);
+  box-shadow: 0 0 0 6px rgba(124, 255, 171, 0.08), 0 10px 26px rgba(124, 255, 171, 0.12);
+}
+
+.tokenBtc {
+  background: rgba(255, 178, 74, 0.95);
+  box-shadow: 0 0 0 6px rgba(255, 178, 74, 0.08), 0 10px 26px rgba(255, 178, 74, 0.12);
+}
+
+.tokenBorrow {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.06), 0 10px 26px rgba(255, 255, 255, 0.08);
+}
+
+/* Used by the page to detect whether CSS modules are loading at all. */
+.cssSentinel {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  background: rgb(1, 2, 3);
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@borrowbot/cre-borrow-and-pay",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@chainlink/cre-sdk": "1.0.7",
+    "viem": "^2.22.0",
+    "zod": "^3.24.2"
+  }
+}
+
