@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { formatUnits, isAddress, parseUnits } from "viem";
+import StoryReplay from "./story-replay";
 const BASESCAN = "https://basescan.org";
 
 // Demo defaults (Base mainnet deployments in this repo).
@@ -14,7 +16,7 @@ const DEFAULT_CBBTC = "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf";
 const NON_ALLOWLISTED_PAYEE_PRESET = "0x000000000000000000000000000000000000dEaD";
 const PROOF_CACHE_KEY_VERSION = "v2";
 const CRE_GAS_LIMIT = "1400000";
-const PROOF_FETCH_TIMEOUT_MS = 20_000;
+const PROOF_FETCH_TIMEOUT_MS = 45_000;
 
 type Proof = {
   updatedAtMs: number;
@@ -228,7 +230,21 @@ function getATokenBalanceFromProof(p: any, assetAddr: string): bigint | null {
   return 0n;
 }
 
+function DemoRouter() {
+  const params = useSearchParams();
+  const isLive = params.has("live");
+  return isLive ? <LiveDemo /> : <StoryReplay />;
+}
+
 export default function DemoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <DemoRouter />
+    </Suspense>
+  );
+}
+
+function LiveDemo() {
   const [payee, setPayee] = useState(DEFAULT_PAYEE);
   const [amountUsdc, setAmountUsdc] = useState("1.00");
   const [depositUsdc, setDepositUsdc] = useState("10.00");
@@ -650,7 +666,7 @@ export default function DemoPage() {
                 })();
           if (depositObserved) break;
           if (Date.now() - start > timeoutMs) throw new Error("Timed out waiting for Aave collateral to update after deposit");
-          await new Promise((r) => setTimeout(r, 2000));
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
@@ -681,7 +697,7 @@ export default function DemoPage() {
         const p = await refreshProof();
         if (p.vault.nonce > baselineProof.vault.nonce) break;
         if (Date.now() - start > timeoutMs) throw new Error("Timed out waiting for onchain confirmation");
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 1000));
       }
 
       setPhase(4);
@@ -694,7 +710,7 @@ export default function DemoPage() {
           const p = await refreshProof();
           if (p.usdc.payeeBalance > baselineProof.usdc.payeeBalance) break;
           if (Date.now() - start2 > timeoutMs2) throw new Error("Timed out waiting for payee balance to update");
-          await new Promise((r) => setTimeout(r, 1500));
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
@@ -1129,1054 +1145,348 @@ export default function DemoPage() {
     traceRequestedBorrow != null && receiverReportBorrowAmount != null ? receiverReportBorrowAmount === traceRequestedBorrow : null;
 
   return (
-    <main className="wrap">
-      <div className="top demoTop">
-        <div className="brand">
-          <h1>Crypto Treasury Bot</h1>
-          <p>Grow treasury collateral while the AI agent borrows USDC to spend.</p>
-          <p className="brandSub">CRE verifies the agent plan before onchain execution.</p>
+    <div className="min-h-screen">
+      <main className="mx-auto max-w-5xl px-5 pt-5 pb-12">
+        {/* ── Header bar ── */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`h-2 w-2 rounded-full ${running ? "bg-accent animate-pulse" : "bg-accent2"}`} />
+            <h1 className="text-lg font-semibold text-text-primary tracking-tight">Agent Treasury Demo</h1>
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-accent/10 text-accent border border-accent/20">Base Mainnet</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {elapsedLabel ? <span className="text-[11px] text-text-tertiary font-mono">{elapsedLabel}</span> : null}
+            <button onClick={() => void refreshProof().catch((e) => setError(e instanceof Error ? e.message : String(e)))} disabled={running || proofLoading} className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors disabled:opacity-40">
+              {proofLoading ? "Refreshing…" : "Refresh"}
+            </button>
+            <button onClick={() => void resetToUsdc()} disabled={running || proofLoading || resetting} className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors disabled:opacity-40" title="Repay + withdraw + swap to USDC">
+              {resetting ? "Resetting…" : "Reset"}
+            </button>
+          </div>
         </div>
-        <div className="topRight">
-          <div className="topControls" aria-label="Demo plan controls">
-            <div className={`miniField ${!validPayee ? "invalid" : ""}`}>
-              <div className="miniLabel">Payee</div>
+
+        {/* ── Controls card ── */}
+        <div className="rounded-xl border border-border bg-surface/60 backdrop-blur-sm p-4 mb-4">
+          {/* Row 1: Payee + numeric inputs */}
+          <div className="flex gap-3 items-end mb-3">
+            <div className={`miniField flex-1 min-w-0 ${!validPayee ? "invalid" : ""}`}>
+              <div className="miniLabel">Payee address</div>
               <div className="miniRow">
-                <input
-                  className="miniInput mono"
-                  inputMode="text"
-                  placeholder={DEFAULT_PAYEE}
-                  value={payee}
-                  onChange={(e) => setPayee(e.target.value)}
-                  disabled={running || confirmRunOpen}
-                  aria-label="Payee address"
-                />
+                <input className="miniInput mono" style={{ fontSize: "12px" }} inputMode="text" placeholder={DEFAULT_PAYEE} value={payee} onChange={(e) => setPayee(e.target.value)} disabled={running || confirmRunOpen} aria-label="Payee address" />
               </div>
             </div>
-            <div className={`miniField ${depositUnits == null || depositUnits === "0" ? "invalid" : ""}`}>
+            <div className={`miniField shrink-0 ${depositUnits == null || depositUnits === "0" ? "invalid" : ""}`} style={{ width: "110px" }}>
               <div className="miniLabel">Deposit</div>
               <div className="miniRow">
-                <input
-                  className="miniInput"
-                  inputMode="decimal"
-                  placeholder="20.00"
-                  value={depositUsdc}
-                  onChange={(e) => setDepositUsdc(e.target.value)}
-                  disabled={running || confirmRunOpen}
-                  aria-label="Deposit amount (USDC)"
-                />
+                <input className="miniInput" inputMode="decimal" placeholder="10" value={depositUsdc} onChange={(e) => setDepositUsdc(e.target.value)} disabled={running || confirmRunOpen} aria-label="Deposit" />
                 <span className="miniUnit">USDC</span>
               </div>
             </div>
-            <div className="miniField">
-              <div className="miniLabel">Deposit As</div>
+            <div className={`miniField shrink-0 ${amountUnits == null || amountUnits === "0" ? "invalid" : ""}`} style={{ width: "110px" }}>
+              <div className="miniLabel">Borrow</div>
               <div className="miniRow">
-                <select
-                  className="miniInput"
-                  value={depositMode}
-                  onChange={(e) => setDepositMode(e.target.value === "usdc" ? "usdc" : "eth_btc")}
-                  disabled={running || confirmRunOpen}
-                  aria-label="Deposit mode"
-                >
-                  <option value="eth_btc">50/50 ETH + BTC</option>
+                <input className="miniInput" inputMode="decimal" placeholder="1" value={amountUsdc} onChange={(e) => setAmountUsdc(e.target.value)} disabled={running || confirmRunOpen} aria-label="Borrow" />
+                <span className="miniUnit">USDC</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Dropdowns + Run button + progress */}
+          <div className="flex items-center gap-3">
+            <div className="miniField shrink-0" style={{ width: "120px" }}>
+              <div className="miniRow">
+                <select className="miniInput" value={depositMode} onChange={(e) => setDepositMode(e.target.value === "usdc" ? "usdc" : "eth_btc")} disabled={running || confirmRunOpen}>
+                  <option value="eth_btc">ETH + BTC</option>
                   <option value="usdc">USDC only</option>
                 </select>
               </div>
             </div>
-            <div className={`miniField ${amountUnits == null || amountUnits === "0" ? "invalid" : ""}`}>
-              <div className="miniLabel">Borrow</div>
+            <div className="miniField shrink-0" style={{ width: "120px" }}>
               <div className="miniRow">
-                <input
-                  className="miniInput"
-                  inputMode="decimal"
-                  placeholder="1.00"
-                  value={amountUsdc}
-                  onChange={(e) => setAmountUsdc(e.target.value)}
-                  disabled={running || confirmRunOpen}
-                  aria-label="Borrow and pay amount (USDC)"
-                />
-                <span className="miniUnit">USDC</span>
+                <select className="miniInput" value={presetId} onChange={(e) => applyPreset((e.target.value as any) || "happy")} disabled={running || confirmRunOpen}>
+                  <option value="happy">Happy path</option>
+                  <option value="non_allowlisted">Bad payee</option>
+                  <option value="borrow_too_much">Over-borrow</option>
+                  <option value="simulate_only">Sim only</option>
+                </select>
               </div>
             </div>
-          </div>
-          <div className="runStack">
-            <div className="presetRow" aria-label="Presets">
-              <div className="miniField">
-                <div className="miniLabel">Presets</div>
-                <div className="miniRow">
-                <select
-                  className="miniInput"
-                  value={presetId}
-                  onChange={(e) => applyPreset((e.target.value as any) || "happy")}
-                  disabled={running || confirmRunOpen}
-                    aria-label="Demo presets"
-                  >
-                    <option value="happy">Happy path (default)</option>
-                    <option value="non_allowlisted">Non-allowlisted payee (should fail)</option>
-                    <option value="borrow_too_much">Borrow too much (should fail)</option>
-                    <option value="simulate_only">Simulate only (no broadcast)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="miniField">
-                <div className="miniLabel">CRE</div>
-                <div className="miniRow">
-                  <label className="toggleRow" title="If off, CRE runs simulation only (no report tx)">
-                    <input
-                      type="checkbox"
-                      checked={broadcast}
-                      onChange={(e) => setBroadcast(e.target.checked)}
-                      disabled={running || confirmRunOpen}
-                    />
-                    <span className="toggleText">{broadcast ? "Broadcast" : "Simulate"}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
+
             <button
               type="button"
               onClick={toggleRunConfirm}
               disabled={runDisabled}
-              aria-disabled={running || !canRun}
-              className={`primaryBtn ${confirmRunOpen && !running ? "primaryBtnArmed" : ""} ${!canRun && !running ? "primaryBtnPseudoDisabled" : ""}`}
+              className={`inline-flex items-center gap-2 rounded-full px-6 py-2 text-xs font-semibold transition-all shrink-0 ${
+                confirmRunOpen && !running
+                  ? "bg-accent text-background shadow-lg shadow-accent/20"
+                  : "bg-accent/90 text-background hover:bg-accent hover:shadow-lg hover:shadow-accent/20"
+              } ${!canRun && !running ? "opacity-50" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
               title={!canRun ? runDisabledReason : "Run borrow-to-spend workflow"}
             >
-              {running ? "Running…" : confirmRunOpen ? "Confirm…" : "Run Demo"}
+              {running ? "Running…" : confirmRunOpen ? "Confirm" : "Run Demo"}
+              {!running && (
+                <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5"><path d="M3 8h10m-4-4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              )}
             </button>
-            {!running ? (
-              <div className="runMeta">
-                {canRun ? (
-                  <>
-                    Deposit <span className="mono">{depositUsdc}</span> USDC{" "}
-                    <span className="mono">({depositMode === "eth_btc" ? "50/50 ETH+BTC" : "USDC-only"})</span> · Borrow{" "}
-                    <span className="mono">{amountUsdc}</span> USDC · Pay{" "}
-                    <span className="mono">{shortHex(payee, 8, 6) || "payee"}</span>
-                    {" · "}
-                    CRE <span className="mono">{broadcast ? "broadcast" : "simulate"}</span>
-                  </>
-                ) : (
-                  runDisabledReason
-                )}
+
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-text-tertiary cursor-pointer shrink-0">
+              <input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)} disabled={running || confirmRunOpen} className="accent-accent" style={{ width: "13px", height: "13px" }} />
+              {broadcast ? "Broadcast" : "Sim only"}
+            </label>
+
+            {/* Progress steps — pushed right */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {[
+                { label: "Agent", ok: agentOk, active: running && phase === 0, fail: failedPhase === 0 && !agentOk },
+                { label: "Deposit", ok: depositOk, active: running && phase === 1, fail: failedPhase === 1 && !depositOk },
+                { label: "CRE", ok: creOk, active: running && phase === 2, fail: failedPhase === 2 && !creOk },
+                { label: "Onchain", ok: onchainOk, active: running && phase === 3, fail: failedPhase === 3 && !onchainOk },
+                { label: "Paid", ok: payeeOk, active: running && phase === 4, fail: failedPhase === 4 && !payeeOk },
+              ].map((s, i) => (
+                <div key={s.label} className="flex items-center gap-1.5">
+                  {i > 0 && <div className={`w-3 h-px ${s.ok || (i > 0 && [agentOk, depositOk, creOk, onchainOk][i - 1]) ? "bg-accent2/40" : "bg-border"}`} />}
+                  <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-all ${
+                    s.fail ? "border-red/40 bg-red/10 text-red" :
+                    s.ok ? "border-accent2/30 bg-accent2/10 text-accent2" :
+                    s.active ? "border-accent/40 bg-accent/10 text-accent" :
+                    "border-border bg-surface text-text-tertiary"
+                  }`}>
+                    {s.ok ? (
+                      <svg viewBox="0 0 12 12" className="w-2.5 h-2.5"><path d="M3 6l2 2 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    ) : s.fail ? (
+                      <svg viewBox="0 0 12 12" className="w-2.5 h-2.5"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    ) : s.active ? (
+                      <span className="h-1 w-1 rounded-full bg-accent animate-pulse" />
+                    ) : null}
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Confirmation dialog ── */}
+        {confirmRunOpen && !running ? (
+          <div role="dialog" aria-modal="true" onClick={() => setConfirmRunOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60 backdrop-blur-md">
+            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md p-5 rounded-2xl border border-border-strong bg-surface shadow-2xl">
+              <p className="text-sm font-medium text-text-primary mb-2">Run real Base mainnet transactions?</p>
+              <p className="text-xs text-text-secondary leading-relaxed mb-4">
+                Deposit <span className="font-mono">{depositUsdc}</span> USDC → borrow <span className="font-mono">{amountUsdc}</span> USDC → pay <span className="font-mono">{shortHex(payee, 6, 4)}</span>
+              </p>
+              <div className="flex gap-3">
+                <button type="button" className="copyBtn" onClick={() => setConfirmRunOpen(false)} style={{ padding: "8px 14px" }}>Cancel</button>
+                <button type="button" onClick={() => void runDemo()} disabled={!canRun} className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-background hover:bg-accent-hover disabled:opacity-40">
+                  Confirm
+                </button>
               </div>
-            ) : null}
+            </div>
           </div>
-        </div>
-      </div>
+        ) : null}
 
-      {confirmRunOpen && !running ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setConfirmRunOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(6px)"
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(720px, 100%)",
-              padding: "14px 14px",
-              borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(10,12,18,0.92)",
-              boxShadow: "0 18px 60px rgba(0,0,0,0.55)"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)" }}>Run real Base mainnet transactions?</div>
-              <button type="button" className="copyBtn" onClick={() => setConfirmRunOpen(false)} style={{ padding: "6px 10px" }}>
-                Close
-              </button>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.66)", lineHeight: 1.4 }}>
-              Plan: deposit <span className="mono">{depositUsdc}</span> USDC, borrow <span className="mono">{amountUsdc}</span> USDC, pay{" "}
-              <span className="mono">{payee}</span>
-            </div>
-            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.64)", lineHeight: 1.35 }}>
-              This demo uses your local private key and will:
-              <br />
-              1) {depositMode === "eth_btc" ? "swap USDC → WETH/cbBTC (50/50) and supply to Aave via the vault" : "supply USDC collateral to Aave via the vault"}
-              <br />
-              2) run a CRE workflow simulation {broadcast ? <>with <span className="mono">--broadcast</span></> : "(no broadcast)"} (borrows USDC and pays the destination)
-            </div>
-            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="copyBtn" onClick={() => setConfirmRunOpen(false)} style={{ padding: "8px 10px" }}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="primaryBtn"
-                onClick={() => void runDemo()}
-                disabled={!canRun}
-                style={{ padding: "8px 10px" }}
-                title={!canRun ? runDisabledReason : "Run the demo workflow"}
-              >
-                I understand, run demo
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <section className="card" style={{ marginTop: 16 }}>
-        <h2>Live Visual</h2>
-        <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.64)" }}>{stepLabel}</div>
-        <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.56)" }}>
-          Plan: deposit <span className="mono">{depositUsdc}</span> USDC{" "}
-          <span className="mono">({depositMode === "eth_btc" ? "50/50 ETH+BTC" : "USDC-only"})</span> · borrow{" "}
-          <span className="mono">{amountUsdc}</span> USDC · pay{" "}
-          <span className="mono">{shortHex(payee, 8, 6) || "payee"}</span>
-        </div>
-        {running && phase === 1 ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.50)" }}>
-            Aave supply is a real onchain tx. Even on Base this can take 10-40s depending on RPC latency and confirmation speed.
-          </div>
-        ) : null}
-        {running && phase === 2 ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.50)" }}>
-            CRE simulation compiles the workflow to WASM and runs consensus. This step can take 30-90s even on Base.
-          </div>
-        ) : null}
-        {elapsedLabel ? (
-          <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.50)" }}>
-            Elapsed: <span className="mono">{elapsedLabel}</span>
-          </div>
-        ) : null}
+        {/* ── Error ── */}
         {error ? (
-          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,180,180,0.95)" }}>
-            Run stopped: {error.split("\n")[0]}
+          <div ref={errorRef} className="rounded-xl border border-red/30 bg-red/[0.06] px-4 py-2.5 mb-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-text-primary truncate">{error.split("\n")[0]}</p>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors" onClick={() => void copyError()}>{copied === "error" ? "Copied" : "Copy"}</button>
+                <button type="button" className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors" onClick={() => void copyDebug()}>{copied === "debug" ? "Copied" : "Debug"}</button>
+              </div>
+            </div>
           </div>
         ) : null}
 
-        <div ref={boardRef} className="demoBoard" style={{ marginTop: 12 }}>
+        {/* ── Success ── */}
+        {finished && proof && baseline ? (
+          <div className="rounded-xl border border-accent2/30 bg-accent2/[0.06] px-4 py-2.5 mb-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs font-medium text-text-primary">Payment confirmed on-chain</p>
+              <div className="flex gap-2">
+                <span className="pill">Payee <span className="mono">{deltaPayee != null ? fmtSigned(deltaPayee, proofUsdcDecimals) : "—"}</span></span>
+                {proof.lastBorrowAndPay ? (
+                  <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer" className="pill">
+                    Tx <span className="mono">{shortHex(proof.lastBorrowAndPay.txHash, 8, 6)}</span>
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Visual board ── */}
+        <div ref={boardRef} className="demoBoard">
           <div className="demoBoardGrid">
+            {/* Agent Wallet */}
             <div className="demoBox">
               <div className="demoBoxTitle">
                 <span>Agent Wallet</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <span className="demoBoxAddr mono">{shortHex(proofAgentWalletAddr || DEFAULT_AGENT_WALLET, 8, 6)}</span>
-                  <button
-                    type="button"
-                    className="copyBtn"
-                    onClick={() => void copy(proofAgentWalletAddr || DEFAULT_AGENT_WALLET, "agent")}
-                    title="Copy agent wallet address"
-                  >
-                    {copied === "agent" ? "Copied" : "Copy"}
-                  </button>
-                </span>
+                <span className="demoBoxAddr mono">{shortHex(proofAgentWalletAddr || DEFAULT_AGENT_WALLET, 6, 4)}</span>
               </div>
               <div className="demoKV" ref={agentAnchorRef}>
                 <span className="demoK">USDC</span>
-                <span className="demoV mono">
-                  {proof ? `${formatToken(proofAgentWalletUsdc, proofUsdcDecimals, 6)} ${proofUsdcSymbol}` : missing}
-                  {proof ? ` ($${formatUsdOrDash(displayOwnerUsdcValueBase, proofBaseDecimals, proofAgentWalletUsdc)})` : ""}
-                </span>
-              </div>
-              <div className="demoKV">
-                <span className="demoK">WETH</span>
-                <span className="demoV mono">
-                  {proof && ownerAssetsNow?.weth
-                    ? `${formatToken(proofAgentWalletWeth, ownerAssetsNow.weth.decimals, 6)} WETH ($${formatUsdOrDash(
-                        displayOwnerWethValueBase,
-                        proofBaseDecimals,
-                        proofAgentWalletWeth
-                      )}) @ $${formatUsdOrDash(wethPriceBase, proofBaseDecimals, 1n)}/WETH`
-                    : proof
-                      ? missing
-                      : missing}
-                </span>
-              </div>
-              <div className="demoKV">
-                <span className="demoK">cbBTC</span>
-                <span className="demoV mono">
-                  {proof && ownerAssetsNow?.cbbtc
-                    ? `${formatToken(proofAgentWalletCbbtc, ownerAssetsNow.cbbtc.decimals, 6)} cbBTC ($${formatUsdOrDash(
-                        displayOwnerCbbtcValueBase,
-                        proofBaseDecimals,
-                        proofAgentWalletCbbtc
-                      )}) @ $${formatUsdOrDash(cbbtcPriceBase, proofBaseDecimals, 1n)}/cbBTC`
-                    : proof
-                      ? missing
-                      : missing}
-                </span>
+                <span className="demoV mono">{proof ? `$${formatUsdOrDash(displayOwnerUsdcValueBase, proofBaseDecimals, proofAgentWalletUsdc)}` : missing}</span>
               </div>
               <div className="demoKV">
                 <span className="demoK">Total</span>
-                <span className="demoV mono">
-                  {proof
-                    ? ownerHasAnyAsset && displayOwnerTotalValueBase === 0n
-                      ? "$—"
-                      : `$${formatUsdBase(displayOwnerTotalValueBase, proofBaseDecimals)}`
-                    : missing}
-                </span>
+                <span className="demoV mono">{proof ? `$${formatUsdBase(displayOwnerTotalValueBase, proofBaseDecimals)}` : missing}</span>
               </div>
-              <div className="demoHint">This wallet funds the vault. The vault contract holds the Aave position.</div>
             </div>
 
-            <div className="demoArrow" aria-hidden="true">
-              →
-            </div>
+            <div className="demoArrow" aria-hidden="true">→</div>
 
+            {/* Treasury */}
             <div className="demoBox">
               <div className="demoBoxTitle">
                 <span>Treasury</span>
-                <span className="demoBoxAddr">Aave V3 position</span>
+                <span className="demoBoxAddr">Aave V3</span>
               </div>
-
               <div className="demoInAnchor" ref={treasuryInAnchorRef} aria-hidden="true" />
-
-              <div className="demoSectionTitle">Collateral</div>
               <div className="demoKV" ref={treasuryCollateralAnchorRef}>
-                <span className="demoK">USDC</span>
-                <span className="demoV mono">
-                  {proof && posNow?.aUsdc
-                    ? `${formatToken(posNow.aUsdc.aTokenBalance, posNow.aUsdc.decimals, 6)} ${proofUsdcSymbol} ($${formatUsdOrDash(
-                        (posNow.aUsdc as any).valueBase ?? 0n,
-                        proofBaseDecimals,
-                        posNow.aUsdc.aTokenBalance
-                      )})`
-                    : missing}
-                </span>
-              </div>
-              <div className="demoKV">
-                <span className="demoK">ETH</span>
-                <span className="demoV mono">
-                  {proof && posNow?.aWeth
-                    ? `${formatToken(posNow.aWeth.aTokenBalance, posNow.aWeth.decimals, 6)} WETH ($${formatUsdOrDash(
-                        (posNow.aWeth as any).valueBase ?? 0n,
-                        proofBaseDecimals,
-                        posNow.aWeth.aTokenBalance
-                      )})`
-                    : missing}
-                </span>
-              </div>
-              <div className="demoKV">
-                <span className="demoK">BTC</span>
-                <span className="demoV mono">
-                  {proof && posNow?.aCbbtc
-                    ? `${formatToken(posNow.aCbbtc.aTokenBalance, posNow.aCbbtc.decimals, 6)} cbBTC ($${formatUsdOrDash(
-                        (posNow.aCbbtc as any).valueBase ?? 0n,
-                        proofBaseDecimals,
-                        posNow.aCbbtc.aTokenBalance
-                      )})`
-                    : missing}
-                </span>
-              </div>
-
-              <div className="demoSectionTitle" style={{ marginTop: 10 }}>
-                Loan
+                <span className="demoK">Collateral</span>
+                <span className="demoV mono">{proof ? `$${formatUsdBase(proofCollBase, proofBaseDecimals)}` : missing}</span>
               </div>
               <div className="demoKV" ref={treasuryDebtAnchorRef}>
-                <span className="demoK">USDC debt</span>
+                <span className="demoK">Debt</span>
                 <span className="demoV mono">
-                  {proof ? `${formatToken((proof as any)?.usdc?.vaultDebt ?? 0n, proofUsdcDecimals, 6)} ${proofUsdcSymbol}` : missing}{" "}
-                  {proof ? `($${formatUsdBase(displayDebtValueBase, proofBaseDecimals)})` : ""}
+                  {proof ? `$${formatUsdBase(proofDebtBase, proofBaseDecimals)}` : missing}
                   {baseline && proof && deltaDebt != null ? <span className="demoDelta"> {fmtSigned(deltaDebt, proofUsdcDecimals)}</span> : null}
                 </span>
               </div>
-
-              <div className="demoHint">
-                {proof ? (
-                  <>
-                    Aave totals: Coll ${formatUsdBase(proofCollBase, proofBaseDecimals)} / Debt ${formatUsdBase(proofDebtBase, proofBaseDecimals)} / HF{" "}
-                    {proofDebtBase === 0n ? "∞" : formatToken(proofHf, 18, 3)}
-                    <br />
-                    Vault wallet: {formatToken(proofVaultWalletUsdc, proofUsdcDecimals, 6)} {proofUsdcSymbol} ($
-                    {formatUsdBase(proofVaultWalletValueBase, proofBaseDecimals)}) · {formatToken(proofVaultWalletWeth, 18, 6)} WETH ·{" "}
-                    {formatToken(proofVaultWalletCbbtc, ownerAssetsNow?.cbbtc?.decimals ?? 8, 6)} cbBTC
-                  </>
-                ) : (
-                  <>Aave totals: {missing}</>
-                )}
+              <div className="demoKV">
+                <span className="demoK">Health</span>
+                <span className="demoV mono">{proof ? (proofDebtBase === 0n ? "∞" : formatToken(proofHf, 18, 2)) : missing}</span>
               </div>
             </div>
 
-            <div className="demoArrow" aria-hidden="true">
-              →
-            </div>
+            <div className="demoArrow" aria-hidden="true">→</div>
 
+            {/* Payee */}
             <div className="demoBox">
               <div className="demoBoxTitle">
-                <span>Payment destination</span>
-                <span className="demoBoxAddr mono">{shortHex(payee, 8, 6)}</span>
+                <span>Service Provider</span>
+                <span className="demoBoxAddr mono">{shortHex(payee, 6, 4)}</span>
               </div>
               <div className="demoKV" ref={payeeAnchorRef}>
                 <span className="demoK">USDC</span>
                 <span className="demoV mono">
-                  {proof ? `${formatToken(proofPayeeUsdc, proofUsdcDecimals, 6)} ${proofUsdcSymbol}` : missing}
-                  {proof ? ` ($${formatUsdBase(displayPayeeUsdcValueBase, proofBaseDecimals)})` : ""}
-                  {baseline && proof && deltaPayee != null ? (
-                    <span className="demoDelta"> {fmtSigned(deltaPayee, proofUsdcDecimals)}</span>
-                  ) : null}
+                  {proof ? `$${formatUsdBase(displayPayeeUsdcValueBase, proofBaseDecimals)}` : missing}
+                  {baseline && proof && deltaPayee != null ? <span className="demoDelta"> {fmtSigned(deltaPayee, proofUsdcDecimals)}</span> : null}
                 </span>
               </div>
-              <div className="demoKV">
-                <span className="demoK">Total</span>
-                <span className="demoV mono">
-                  {proof ? `$${formatUsdBase(displayPayeeTotalValueBase, proofBaseDecimals)}` : missing}
-                </span>
-              </div>
-              <div className="demoHint">This address should end up with more USDC after the run.</div>
             </div>
           </div>
 
           {/* Token animation overlay */}
           {anchors ? (
             <>
-              {/* Deposit storyboard */}
               {isSwapDeposit ? (
                 <>
-                  {/* USDC enters treasury, then splits into ETH + BTC */}
-                  <div
-                    aria-hidden="true"
-                    className="demoToken demoTokenUsdc"
-                    style={{
-                      left: (phase >= 1 ? anchors.treasuryIn : anchors.agent).x,
-                      top: (phase >= 1 ? anchors.treasuryIn : anchors.agent).y,
-                      opacity: visualActive && (phase === 0 || (phase >= 1 && !splitDone)) ? 1 : 0,
-                      transform: `translate(-50%, -50%) scale(${splitDone ? 0.98 : 1})`,
-                      animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined
-                    }}
-                  >
-                    U
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="demoToken demoTokenEth"
-                    style={{
-                      left: (splitDone ? anchors.collateral.x - 14 : anchors.treasuryIn.x),
-                      top: (splitDone ? anchors.collateral.y : anchors.treasuryIn.y),
-                      opacity: visualActive && phase >= 1 && splitDone ? 1 : 0,
-                      animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined
-                    }}
-                  >
-                    E
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="demoToken demoTokenBtc"
-                    style={{
-                      left: (splitDone ? anchors.collateral.x + 14 : anchors.treasuryIn.x),
-                      top: (splitDone ? anchors.collateral.y : anchors.treasuryIn.y),
-                      opacity: visualActive && phase >= 1 && splitDone ? 1 : 0,
-                      animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined
-                    }}
-                  >
-                    B
-                  </div>
+                  <div aria-hidden="true" className="demoToken demoTokenUsdc" style={{ left: (phase >= 1 ? anchors.treasuryIn : anchors.agent).x, top: (phase >= 1 ? anchors.treasuryIn : anchors.agent).y, opacity: visualActive && (phase === 0 || (phase >= 1 && !splitDone)) ? 1 : 0, transform: `translate(-50%, -50%) scale(${splitDone ? 0.98 : 1})`, animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined }}>U</div>
+                  <div aria-hidden="true" className="demoToken demoTokenEth" style={{ left: (splitDone ? anchors.collateral.x - 14 : anchors.treasuryIn.x), top: (splitDone ? anchors.collateral.y : anchors.treasuryIn.y), opacity: visualActive && phase >= 1 && splitDone ? 1 : 0, animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined }}>E</div>
+                  <div aria-hidden="true" className="demoToken demoTokenBtc" style={{ left: (splitDone ? anchors.collateral.x + 14 : anchors.treasuryIn.x), top: (splitDone ? anchors.collateral.y : anchors.treasuryIn.y), opacity: visualActive && phase >= 1 && splitDone ? 1 : 0, animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined }}>B</div>
                 </>
               ) : (
-                <>
-                  {/* USDC deposit → Aave collateral */}
-                  <div
-                    aria-hidden="true"
-                    className="demoToken demoTokenUsdc"
-                    style={{
-                      left: (phase >= 1 ? (splitDone ? anchors.collateral : anchors.treasuryIn) : anchors.agent).x,
-                      top: (phase >= 1 ? (splitDone ? anchors.collateral : anchors.treasuryIn) : anchors.agent).y,
-                      opacity: visualActive ? 1 : 0,
-                      transform: `translate(-50%, -50%) scale(${splitDone ? 1.05 : 1})`,
-                      animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined
-                    }}
-                  >
-                    U
-                  </div>
-                </>
+                <div aria-hidden="true" className="demoToken demoTokenUsdc" style={{ left: (phase >= 1 ? (splitDone ? anchors.collateral : anchors.treasuryIn) : anchors.agent).x, top: (phase >= 1 ? (splitDone ? anchors.collateral : anchors.treasuryIn) : anchors.agent).y, opacity: visualActive ? 1 : 0, transform: `translate(-50%, -50%) scale(${splitDone ? 1.05 : 1})`, animation: splitDone ? "demoTokenPop 420ms ease-out both" : undefined }}>U</div>
               )}
-
-              {/* Borrowed USDC → payee */}
-              <div
-                aria-hidden="true"
-                className={`demoToken demoTokenPay ${payLanded ? "demoTokenPop" : ""}`}
-                style={{
-                  left: (phase >= 3 ? anchors.payee : anchors.debt).x,
-                  top: (phase >= 3 ? anchors.payee : anchors.debt).y,
-                  opacity: visualActive && phase >= 2 ? 1 : 0,
-                  animation: payLanded ? "demoTokenPop 420ms ease-out both" : undefined
-                }}
-              >
-                $
-              </div>
+              <div aria-hidden="true" className={`demoToken demoTokenPay ${payLanded ? "demoTokenPop" : ""}`} style={{ left: (phase >= 3 ? anchors.payee : anchors.debt).x, top: (phase >= 3 ? anchors.payee : anchors.debt).y, opacity: visualActive && phase >= 2 ? 1 : 0, animation: payLanded ? "demoTokenPop 420ms ease-out both" : undefined }}>$</div>
             </>
           ) : null}
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <span className={`pill ${agentOk ? "pillOk" : ""} ${running && phase === 0 ? "pillActive" : ""} ${failedPhase === 0 && !agentOk ? "pillFail" : ""}`}>
-            Agent <span className="mono">{agentOk ? "OK" : running ? "WAIT" : "—"}</span>
-          </span>
-          <span className={`pill ${depositOk ? "pillOk" : ""} ${running && phase === 1 ? "pillActive" : ""} ${failedPhase === 1 && !depositOk ? "pillFail" : ""}`}>
-            Deposit <span className="mono">{depositOk ? "OK" : running && phase >= 1 ? "WAIT" : "—"}</span>
-          </span>
-          <span
-            className={`pill ${creOk ? "pillOk" : ""} ${running && phase === 2 ? "pillActive" : ""} ${failedPhase === 2 && !creOk ? "pillFail" : ""}`}
-          >
-            CRE <span className="mono">{creOk ? "OK" : running && phase >= 2 ? "WAIT" : "—"}</span>
-          </span>
-          <span
-            className={`pill ${onchainOk ? "pillOk" : ""} ${running && phase === 3 ? "pillActive" : ""} ${failedPhase === 3 && !onchainOk ? "pillFail" : ""}`}
-          >
-            Onchain <span className="mono">{onchainOk ? "OK" : running && phase >= 3 ? "WAIT" : "—"}</span>
-          </span>
-          <span className={`pill ${payeeOk ? "pillOk" : ""} ${running && phase === 4 ? "pillActive" : ""} ${failedPhase === 4 && !payeeOk ? "pillFail" : ""}`}>
-            Payee <span className="mono">{payeeOk ? "OK" : running && phase >= 4 ? "WAIT" : "—"}</span>
-          </span>
-          {proof ? (
-            <span className="pill">
-              Allowlist{" "}
-              <span className="mono">
-                payee={(proof as any)?.vault?.payeeAllowed ? "yes" : "no"} borrow={(proof as any)?.vault?.borrowTokenAllowed ? "yes" : "no"}
-              </span>
-            </span>
-          ) : null}
-          {proof?.lastReceiverReport ? (
-            <span className="pill">
-              Receiver tx{" "}
-              <span className="mono">
-                <a href={`${BASESCAN}/tx/${proof.lastReceiverReport.txHash}`} target="_blank" rel="noreferrer">
-                  {shortHex(proof.lastReceiverReport.txHash, 10, 8)}
-                </a>
-              </span>
-            </span>
-          ) : null}
-          {depositSupplyTx ? (
-            <span className="pill">
-              Deposit tx{" "}
-              <span className="mono">
-                <a href={`${BASESCAN}/tx/${depositSupplyTx}`} target="_blank" rel="noreferrer">
-                  {shortHex(depositSupplyTx, 10, 8)}
-                </a>
-              </span>
-            </span>
-          ) : null}
-          {proof?.lastBorrowAndPay ? (
-            <span className="pill">
-              Borrow tx{" "}
-              <span className="mono">
-                <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer">
-                  {shortHex(proof.lastBorrowAndPay.txHash, 10, 8)}
-                </a>
-              </span>
-            </span>
-          ) : null}
-          <button
-            onClick={() => void refreshProof().catch((e) => setError(e instanceof Error ? e.message : String(e)))}
-            disabled={running || proofLoading}
-            style={{
-              cursor: "pointer",
-              borderRadius: 999,
-              padding: "8px 10px",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(0,0,0,0.18)",
-              color: "rgba(255,255,255,0.78)",
-              fontSize: 12
-            }}
-          >
-            {proofLoading ? "Refreshing…" : "Refresh onchain"}
-          </button>
-          <button
-            onClick={() => void resetToUsdc()}
-            disabled={running || proofLoading || resetting}
-            style={{
-              cursor: "pointer",
-              borderRadius: 999,
-              padding: "8px 10px",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(0,0,0,0.18)",
-              color: "rgba(255,255,255,0.78)",
-              fontSize: 12
-            }}
-            title="Repay debt + withdraw collateral + swap to USDC + return to agent wallet"
-          >
-            {resetting ? "Resetting…" : "Repay + Export USDC"}
-          </button>
-        </div>
-
-        {error ? (
-          <div
-            ref={errorRef}
-            style={{
-              marginTop: 12,
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,120,120,0.35)",
-              background: "rgba(255,120,120,0.08)",
-              color: "rgba(255,255,255,0.9)",
-              fontSize: 13,
-              lineHeight: 1.4
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12, color: "rgba(255,220,220,0.92)" }}>Last error (sticky)</div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button type="button" className="copyBtn" onClick={() => void copyError()} title="Copy error text">
-                  {copied === "error" ? "Copied" : "Copy error"}
-                </button>
-                <button type="button" className="copyBtn" onClick={() => void copyDebug()} title="Copy debug JSON (inputs + runner output)">
-                  {copied === "debug" ? "Copied" : "Copy debug"}
-                </button>
-              </div>
-            </div>
-            <pre style={{ marginTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{error}</pre>
+        {/* ── Tx links ── */}
+        {(proof?.lastBorrowAndPay || proof?.lastReceiverReport || depositSupplyTx) ? (
+          <div className="flex gap-1.5 flex-wrap mt-2">
+            {depositSupplyTx ? <a href={`${BASESCAN}/tx/${depositSupplyTx}`} target="_blank" rel="noreferrer" className="pill">Deposit tx <span className="mono">{shortHex(depositSupplyTx, 8, 6)}</span></a> : null}
+            {proof?.lastReceiverReport ? <a href={`${BASESCAN}/tx/${proof.lastReceiverReport.txHash}`} target="_blank" rel="noreferrer" className="pill">CRE tx <span className="mono">{shortHex(proof.lastReceiverReport.txHash, 8, 6)}</span></a> : null}
+            {proof?.lastBorrowAndPay ? <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer" className="pill">Borrow tx <span className="mono">{shortHex(proof.lastBorrowAndPay.txHash, 8, 6)}</span></a> : null}
           </div>
         ) : null}
 
-        {finished && proof && baseline ? (
-          <>
-            <div
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 14,
-                border: "1px solid rgba(124,255,171,0.30)",
-                background: "rgba(124,255,171,0.08)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap"
-              }}
-            >
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.92)" }}>Onchain proof updated</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <span className="pill">
-                  Payee <span className="mono">{deltaPayee != null ? fmtSigned(deltaPayee, proofUsdcDecimals) : "n/a"}</span>
-                </span>
-                <span className="pill">
-                  Debt <span className="mono">{deltaDebt != null ? fmtSigned(deltaDebt, proofUsdcDecimals) : "n/a"}</span>
-                </span>
-                <span className="pill">
-                  Tx{" "}
-                  <span className="mono">
-                    {proof.lastBorrowAndPay ? (
-                      <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer">
-                        {shortHex(proof.lastBorrowAndPay.txHash, 10, 8)}
-                      </a>
-                    ) : (
-                      "n/a"
-                    )}
-                  </span>
-                </span>
+        {/* ── Execution Trace (collapsed) ── */}
+        <details className="rounded-xl border border-border bg-surface/60 backdrop-blur-sm mt-3">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-tertiary hover:text-text-secondary transition-colors">
+            Execution Trace
+          </summary>
+          <div className="px-3 pb-3">
+            <div className="trace">
+              <div className={`traceStep ${running && phase === 2 ? "traceStepActive" : ""} ${stepTriggerDone ? "traceStepDone" : ""} ${stepTriggerFail ? "traceStepFail" : ""}`}>
+                <div className="traceHead"><div className="traceTitle"><span className="traceNum">1</span> Trigger</div><span className={`pill ${creTriggerBody ? "pillOk" : ""}`}>{creTriggerBody ? "OK" : "—"}</span></div>
+                <div className="traceBody"><pre className="tracePre mono">{creTriggerBody ? JSON.stringify(creTriggerBody, null, 2) : "n/a"}</pre></div>
               </div>
-            </div>
 
-            <details className="card" style={{ marginTop: 12, borderColor: "rgba(124,255,171,0.24)" }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, color: "rgba(255,255,255,0.86)" }}>Receipt (expanded)</summary>
-              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Vault</span>
-                <span className="mono" style={{ fontSize: 12 }}>{baseline.vault.address}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Payee</span>
-                <span className="mono" style={{ fontSize: 12 }}>{payee}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Payee (before → after)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {formatToken((baseline as any)?.wallet?.payee?.usdc ?? (baseline as any)?.usdc?.payeeBalance ?? 0n, baselineUsdcDecimals, 6)} →{" "}
-                  {formatToken(proofPayeeUsdc, proofUsdcDecimals, 6)} {proofUsdcSymbol} {deltaPayee != null ? `(${fmtSigned(deltaPayee, proofUsdcDecimals)})` : ""}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Agent wallet (before → after)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {formatToken((baseline as any)?.wallet?.owner?.usdc ?? 0n, baselineUsdcDecimals, 6)} → {formatToken(proofAgentWalletUsdc, proofUsdcDecimals, 6)} {proofUsdcSymbol}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Vault debt (before → after)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {formatToken((baseline as any)?.usdc?.vaultDebt ?? 0n, baselineUsdcDecimals, 6)} → {formatToken((proof as any)?.usdc?.vaultDebt ?? 0n, proofUsdcDecimals, 6)} {proofUsdcSymbol}{" "}
-                  {deltaDebt != null ? `(${fmtSigned(deltaDebt, proofUsdcDecimals)})` : ""}{" "}
-                  {`[$${formatUsdBase((baseline as any)?.usdc?.vaultDebtValueBase ?? 0n, baselineBaseDecimals)} → $${formatUsdBase(proofDebtValueBase, proofBaseDecimals)}]`}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Aave collateral ($)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {formatUsdBase((baseline as any)?.aave?.userAccountData?.totalCollateralBase ?? 0n, baselineBaseDecimals)} → {formatUsdBase(proofCollBase, proofBaseDecimals)}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>aWETH (before → after)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {(() => {
-                    const before = (baseline as any)?.collaterals?.find?.((c: any) => String(c.address).toLowerCase() === DEFAULT_WETH.toLowerCase());
-                    const after = (proof as any)?.collaterals?.find?.((c: any) => String(c.address).toLowerCase() === DEFAULT_WETH.toLowerCase());
-                    if (!before || !after) return "n/a";
-                    return `${formatToken(before.aTokenBalance, before.decimals, 6)} → ${formatToken(after.aTokenBalance, after.decimals, 6)} ${after.symbol} ` +
-                      `($${formatUsdBase(before.valueBase ?? 0n, baselineBaseDecimals)} → $${formatUsdBase(after.valueBase ?? 0n, proofBaseDecimals)})`;
-                  })()}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>aCBTC (before → after)</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {(() => {
-                    const before = (baseline as any)?.collaterals?.find?.((c: any) => String(c.address).toLowerCase() === DEFAULT_CBBTC.toLowerCase());
-                    const after = (proof as any)?.collaterals?.find?.((c: any) => String(c.address).toLowerCase() === DEFAULT_CBBTC.toLowerCase());
-                    if (!before || !after) return "n/a";
-                    return `${formatToken(before.aTokenBalance, before.decimals, 6)} → ${formatToken(after.aTokenBalance, after.decimals, 6)} ${after.symbol} ` +
-                      `($${formatUsdBase(before.valueBase ?? 0n, baselineBaseDecimals)} → $${formatUsdBase(after.valueBase ?? 0n, proofBaseDecimals)})`;
-                  })()}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>Borrow tx</span>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  {proof.lastBorrowAndPay ? (
-                    <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer">
-                      {shortHex(proof.lastBorrowAndPay.txHash, 10, 8)}
-                    </a>
-                  ) : (
-                    "n/a"
-                  )}
-                </span>
-              </div>
-              </div>
-            </details>
-          </>
-        ) : null}
-      </section>
-
-      <section className="card" style={{ marginTop: 16 }}>
-        <h2>Execution Trace</h2>
-        <p style={{ marginTop: 2 }}>
-          The AI agent is allowed to propose actions, but it is treated as <span className="mono">untrusted input</span>. Chainlink CRE runs a deterministic
-          workflow in multi-node consensus, then (optionally) writes a report onchain. The vault contract is the final enforcement layer: allowlists, nonces,
-          and borrow limits cannot be bypassed by the agent or by CRE.
-        </p>
-
-        <div className="trace">
-          <div className={`traceStep ${running && phase === 2 ? "traceStepActive" : ""} ${stepTriggerDone ? "traceStepDone" : ""} ${stepTriggerFail ? "traceStepFail" : ""}`}>
-            <div className="traceHead">
-              <div className="traceTitle">
-                <span className="traceNum">1</span> Trigger (UI → CRE)
-              </div>
-              <span className={`pill ${creTriggerBody ? "pillOk" : ""}`}>{creTriggerBody ? "Captured" : "—"}</span>
-            </div>
-            <div className="traceBody">
-              <div className="traceHint">
-                Trigger inputs (HTTP payload + whether we broadcast). Broadcast is a CLI flag, not part of the HTTP payload.
-              </div>
-              <pre className="tracePre mono">{creTriggerBody ? JSON.stringify(creTriggerBody, null, 2) : "n/a"}</pre>
-            </div>
-          </div>
-
-          <div className={`traceStep ${running && phase === 0 ? "traceStepActive" : ""} ${stepAgentDone ? "traceStepDone" : ""} ${stepAgentFail ? "traceStepFail" : ""}`}>
-            <div className="traceHead">
-              <div className="traceTitle">
-                <span className="traceNum">2</span> Agent Proposal (untrusted)
-              </div>
-              <span className={`pill ${plan ? "pillOk" : ""}`}>{plan ? "OK" : "—"}</span>
-            </div>
-            <div className="traceBody">
-              <div className="traceHint">
-                The CRE workflow will reject any agent output that changes payee/asset, escalates the amount, or uses the wrong nonce.
-              </div>
-              <div className="traceTwoCol">
-                <div>
-                  <div className="traceSubhead">Agent request</div>
-                  <pre className="tracePre mono">{agentReqBody ? JSON.stringify(agentReqBody, null, 2) : "n/a"}</pre>
-                </div>
-                <div>
-                  <div className="traceSubhead">
-                    Agent response <span className="traceBadge">Untrusted input</span>
+              <div className={`traceStep ${running && phase === 0 ? "traceStepActive" : ""} ${stepAgentDone ? "traceStepDone" : ""} ${stepAgentFail ? "traceStepFail" : ""}`}>
+                <div className="traceHead"><div className="traceTitle"><span className="traceNum">2</span> Agent Plan</div><span className={`pill ${plan ? "pillOk" : ""}`}>{plan ? "OK" : "—"}</span></div>
+                <div className="traceBody">
+                  <div className="traceTwoCol">
+                    <div><div className="traceSubhead">Request</div><pre className="tracePre mono">{agentReqBody ? JSON.stringify(agentReqBody, null, 2) : "n/a"}</pre></div>
+                    <div><div className="traceSubhead">Response <span className="traceBadge">Untrusted</span></div><pre className="tracePre mono">{plan ? JSON.stringify(plan, null, 2) : "n/a"}</pre></div>
                   </div>
-                  <pre className="tracePre mono">{plan ? JSON.stringify(plan, null, 2) : "n/a"}</pre>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div
-            className={`traceStep ${running && phase === 2 ? "traceStepActive" : ""} ${stepVerificationDone ? "traceStepDone" : ""} ${stepVerificationFail ? "traceStepFail" : ""}`}
-          >
-            <div className="traceHead">
-              <div className="traceTitle">
-                <span className="traceNum">3</span> CRE Verification (deterministic + consensus)
-              </div>
-              <span className={`pill ${traceCreChecksOk ? "pillOk" : ""}`}>
-                {traceCreChecksOk == null ? "—" : traceCreChecksOk ? "PASS" : "FAIL"}
-              </span>
-            </div>
-            <div className="traceBody">
-              <div className="traceHint">
-                These checks are computed inside the CRE workflow before it writes an onchain report.
-              </div>
-              <div className="traceChecks">
-                <div className={`traceCheck ${traceVaultPausedOk === false ? "traceCheckBad" : ""}`}>
-                  <span>vault.paused == false</span>
-                  <span className="mono">{traceVaultPausedOk == null ? "n/a" : String(traceVaultPausedOk)}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>expectedPlanNonce = baselineNonce + 1</span>
-                  <span className="mono">
-                    {baseline ? `${baseline.vault.nonce.toString()} + 1 = ${traceExpectedNonce?.toString()}` : "n/a"}
-                  </span>
-                </div>
-                <div className={`traceCheck ${tracePlanMatchesPayee === false ? "traceCheckBad" : ""}`}>
-                  <span>agent cannot change payee</span>
-                  <span className="mono">{tracePlanPayee ? `${shortHex(tracePlanPayee, 8, 6)} == ${shortHex(payee, 8, 6)}` : "n/a"}</span>
-                </div>
-                <div className={`traceCheck ${tracePlanMatchesBorrowAsset === false ? "traceCheckBad" : ""}`}>
-                  <span>agent cannot change borrowAsset</span>
-                  <span className="mono">{tracePlanBorrowAsset ? `${shortHex(tracePlanBorrowAsset, 8, 6)} == USDC` : "n/a"}</span>
-                </div>
-                <div className={`traceCheck ${tracePlanNotEscalated === false ? "traceCheckBad" : ""}`}>
-                  <span>agent cannot increase borrowAmount</span>
-                  <span className="mono">
-                    {tracePlanBorrow != null && traceRequestedBorrow != null
-                      ? `${tracePlanBorrow.toString()} <= ${traceRequestedBorrow.toString()}`
-                      : "n/a"}
-                  </span>
+              <div className={`traceStep ${running && phase === 2 ? "traceStepActive" : ""} ${stepVerificationDone ? "traceStepDone" : ""} ${stepVerificationFail ? "traceStepFail" : ""}`}>
+                <div className="traceHead"><div className="traceTitle"><span className="traceNum">3</span> CRE Verification</div><span className={`pill ${traceCreChecksOk ? "pillOk" : ""}`}>{traceCreChecksOk == null ? "—" : traceCreChecksOk ? "PASS" : "FAIL"}</span></div>
+                <div className="traceBody">
+                  <div className="traceChecks">
+                    <div className={`traceCheck ${traceVaultPausedOk === false ? "traceCheckBad" : ""}`}><span>vault.paused == false</span><span className="mono">{traceVaultPausedOk == null ? "n/a" : String(traceVaultPausedOk)}</span></div>
+                    <div className={`traceCheck ${tracePlanMatchesPayee === false ? "traceCheckBad" : ""}`}><span>payee matches</span><span className="mono">{tracePlanMatchesPayee == null ? "n/a" : String(tracePlanMatchesPayee)}</span></div>
+                    <div className={`traceCheck ${tracePlanMatchesBorrowAsset === false ? "traceCheckBad" : ""}`}><span>asset matches</span><span className="mono">{tracePlanMatchesBorrowAsset == null ? "n/a" : String(tracePlanMatchesBorrowAsset)}</span></div>
+                    <div className={`traceCheck ${tracePlanNotEscalated === false ? "traceCheckBad" : ""}`}><span>amount not escalated</span><span className="mono">{tracePlanNotEscalated == null ? "n/a" : String(tracePlanNotEscalated)}</span></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className={`traceStep ${running && (phase === 2 || phase === 3) ? "traceStepActive" : ""} ${stepWriteDone ? "traceStepDone" : ""} ${stepWriteFail ? "traceStepFail" : ""}`}>
-            <div className="traceHead">
-              <div className="traceTitle">
-                <span className="traceNum">4</span> CRE Onchain Write (writeReport)
-              </div>
-              <span className={`pill ${creRun?.ok ? "pillOk" : ""}`}>{creRun?.ok ? "OK" : creRun ? "FAIL" : "—"}</span>
-            </div>
-            <div className="traceBody">
-              <div className="traceChecks">
-                <div className="traceCheck">
-                  <span>receiver</span>
-                  <span className="mono">{proof ? shortHex((proof as any)?.receiver?.address, 10, 8) : "n/a"}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>forwarder gate</span>
-                  <span className="mono">{receiverForwarder ? shortHex(receiverForwarder, 10, 8) : "n/a"}</span>
-                </div>
-                <div className={`traceCheck ${receiverReportNonceOk === false ? "traceCheckBad" : ""}`}>
-                  <span>report planNonce</span>
-                  <span className="mono">
-                    {receiverReportPlanNonce != null && traceExpectedNonce != null
-                      ? `${receiverReportPlanNonce.toString()} (expected ${traceExpectedNonce.toString()})`
-                      : "n/a"}
-                  </span>
-                </div>
-                <div className={`traceCheck ${receiverReportPayeeOk === false ? "traceCheckBad" : ""}`}>
-                  <span>report payee</span>
-                  <span className="mono">
-                    {receiverReportPayee ? `${shortHex(receiverReportPayee, 8, 6)} == ${shortHex(payee, 8, 6)}` : "n/a"}
-                  </span>
-                </div>
-                <div className={`traceCheck ${receiverReportBorrowOk === false ? "traceCheckBad" : ""}`}>
-                  <span>report borrowAmount</span>
-                  <span className="mono">
-                    {receiverReportBorrowAmount != null && traceRequestedBorrow != null
-                      ? `${formatUnits(receiverReportBorrowAmount, 6)} == ${formatUnits(traceRequestedBorrow, 6)} USDC`
-                      : "n/a"}
-                  </span>
-                </div>
-                <div className="traceCheck">
-                  <span>gasLimit</span>
-                  <span className="mono">{CRE_GAS_LIMIT}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>duration</span>
-                  <span className="mono">{creDurationMs != null ? `${Math.round(creDurationMs / 1000)}s` : "n/a"}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>report tx</span>
-                  <span className="mono">
-                    {creDidBroadcast ? (
-                      receiverTxHash ? (
-                        <a href={`${BASESCAN}/tx/${receiverTxHash}`} target="_blank" rel="noreferrer">
-                          {shortHex(receiverTxHash, 10, 8)}
-                        </a>
-                      ) : (
-                        "pending/unknown"
-                      )
-                    ) : (
-                      "simulation only"
-                    )}
-                  </span>
+              <div className={`traceStep ${running && (phase === 2 || phase === 3) ? "traceStepActive" : ""} ${stepWriteDone ? "traceStepDone" : ""} ${stepWriteFail ? "traceStepFail" : ""}`}>
+                <div className="traceHead"><div className="traceTitle"><span className="traceNum">4</span> CRE Write</div><span className={`pill ${creRun?.ok ? "pillOk" : ""}`}>{creRun?.ok ? "OK" : creRun ? "FAIL" : "—"}</span></div>
+                <div className="traceBody">
+                  <div className="traceChecks">
+                    <div className="traceCheck"><span>duration</span><span className="mono">{creDurationMs != null ? `${Math.round(creDurationMs / 1000)}s` : "n/a"}</span></div>
+                    <div className="traceCheck"><span>report tx</span><span className="mono">{creDidBroadcast ? (receiverTxHash ? <a href={`${BASESCAN}/tx/${receiverTxHash}`} target="_blank" rel="noreferrer">{shortHex(receiverTxHash, 8, 6)}</a> : "pending") : "sim only"}</span></div>
+                  </div>
                 </div>
               </div>
-              <div className="traceHint" style={{ marginTop: 8 }}>
-                Why CRE: multi-node consensus produces a verifiable report. No single server can silently change the plan or the onchain instruction.
-              </div>
-            </div>
-          </div>
 
-          <div className={`traceStep ${running && (phase === 3 || phase === 4) ? "traceStepActive" : ""} ${stepOnchainDone ? "traceStepDone" : ""} ${stepOnchainFail ? "traceStepFail" : ""}`}>
-            <div className="traceHead">
-              <div className="traceTitle">
-                <span className="traceNum">5</span> Onchain Execution (vault enforced)
-              </div>
-              <span className={`pill ${onchainOk ? "pillOk" : ""}`}>
-                {creDidBroadcast ? (onchainOk ? "OK" : creRun ? "WAIT/FAIL" : "—") : "skipped"}
-              </span>
-            </div>
-            <div className="traceBody">
-              <div className="traceChecks">
-                <div className="traceCheck">
-                  <span>vault nonce</span>
-                  <span className="mono">{baseline && proof ? `${baseline.vault.nonce.toString()} → ${proof.vault.nonce.toString()}` : "n/a"}</span>
+              <div className={`traceStep ${running && (phase === 3 || phase === 4) ? "traceStepActive" : ""} ${stepOnchainDone ? "traceStepDone" : ""} ${stepOnchainFail ? "traceStepFail" : ""}`}>
+                <div className="traceHead"><div className="traceTitle"><span className="traceNum">5</span> Vault Execution</div><span className={`pill ${onchainOk ? "pillOk" : ""}`}>{creDidBroadcast ? (onchainOk ? "OK" : creRun ? "WAIT" : "—") : "skipped"}</span></div>
+                <div className="traceBody">
+                  <div className="traceChecks">
+                    <div className="traceCheck"><span>nonce</span><span className="mono">{baseline && proof ? `${baseline.vault.nonce.toString()} → ${proof.vault.nonce.toString()}` : "n/a"}</span></div>
+                    <div className="traceCheck"><span>payee delta</span><span className="mono">{deltaPayee != null ? fmtSigned(deltaPayee, proofUsdcDecimals) : "n/a"}</span></div>
+                    <div className="traceCheck"><span>debt delta</span><span className="mono">{deltaDebt != null ? fmtSigned(deltaDebt, proofUsdcDecimals) : "n/a"}</span></div>
+                    <div className="traceCheck"><span>borrow tx</span><span className="mono">{proof?.lastBorrowAndPay?.txHash ? <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer">{shortHex(proof.lastBorrowAndPay.txHash, 8, 6)}</a> : "n/a"}</span></div>
+                  </div>
                 </div>
-                <div className="traceCheck">
-                  <span>payee USDC delta</span>
-                  <span className="mono">
-                    {deltaPayee != null ? fmtSigned(deltaPayee, proofUsdcDecimals) : "n/a"}
-                  </span>
-                </div>
-                <div className="traceCheck">
-                  <span>vault USDC debt delta</span>
-                  <span className="mono">{deltaDebt != null ? fmtSigned(deltaDebt, proofUsdcDecimals) : "n/a"}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>payee allowlisted</span>
-                  <span className="mono">{proof ? String((proof as any)?.vault?.payeeAllowed) : "n/a"}</span>
-                </div>
-                <div className="traceCheck">
-                  <span>borrow asset allowlisted</span>
-                  <span className="mono">{proof ? String((proof as any)?.vault?.borrowTokenAllowed) : "n/a"}</span>
-                </div>
-                {vaultPolicy ? (
-                  <>
-                    <div className="traceCheck">
-                      <span>maxBorrowPerTx</span>
-                      <span className="mono">{formatUnits(vaultPolicy.maxBorrowPerTx, 6)} USDC</span>
-                    </div>
-                    <div className="traceCheck">
-                      <span>maxBorrowPerDay</span>
-                      <span className="mono">{formatUnits(vaultPolicy.maxBorrowPerDay, 6)} USDC</span>
-                    </div>
-                    <div className="traceCheck">
-                      <span>dailyBorrowed</span>
-                      <span className="mono">{formatUnits(vaultPolicy.dailyBorrowed, 6)} USDC</span>
-                    </div>
-                    <div className="traceCheck">
-                      <span>cooldownSeconds</span>
-                      <span className="mono">{vaultPolicy.cooldownSeconds.toString()}s</span>
-                    </div>
-                  </>
-                ) : null}
-                <div className="traceCheck">
-                  <span>borrow tx</span>
-                  <span className="mono">
-                    {proof?.lastBorrowAndPay?.txHash ? (
-                      <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer">
-                        {shortHex(proof.lastBorrowAndPay.txHash, 10, 8)}
-                      </a>
-                    ) : (
-                      "n/a"
-                    )}
-                  </span>
-                </div>
-              </div>
-              <div className="traceHint" style={{ marginTop: 8 }}>
-                Even if CRE is compromised, it cannot bypass onchain rules. If a preset fails, the trace above shows the guard that blocked it.
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </details>
 
-      <details className="card" style={{ marginTop: 16 }}>
-        <summary style={{ cursor: "pointer", fontSize: 13, color: "rgba(255,255,255,0.86)" }}>Raw logs (agent + runners)</summary>
-        <div suppressHydrationWarning style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>Proof debug</div>
-              <a
-                className="pill"
-                href={`/api/proof?payee=${encodeURIComponent(payee.trim() || DEFAULT_PAYEE)}`}
-                target="_blank"
-                rel="noreferrer"
-                title="Open the raw proof JSON returned by the server"
-              >
-                Open raw proof
-              </a>
-            </div>
-	            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-	              {proof
-	                ? JSON.stringify(
-	                    {
-	                      baseDecimals: proofBaseDecimals,
-	                      baseCurrencyUnit: proofBaseCurrencyUnit.toString(),
-	                      prices: {
-	                        usdcPriceBase: proofUsdcPriceBase.toString(),
-	                        wethPriceBase: wethPriceBase.toString(),
-	                        cbbtcPriceBase: cbbtcPriceBase.toString()
-	                      },
-	                      computed: {
-	                        ownerUsdcValueBase: computedOwnerUsdcValueBase.toString(),
-	                        ownerWethValueBase: computedOwnerWethValueBase.toString(),
-	                        ownerCbbtcValueBase: computedOwnerCbbtcValueBase.toString(),
-	                        ownerTotalValueBase: computedOwnerTotalValueBase.toString()
-	                      },
-	                      display: {
-	                        ownerUsdcValueBase: displayOwnerUsdcValueBase.toString(),
-	                        ownerWethValueBase: displayOwnerWethValueBase.toString(),
-	                        ownerCbbtcValueBase: displayOwnerCbbtcValueBase.toString(),
-	                        ownerTotalValueBase: displayOwnerTotalValueBase.toString()
-	                      },
-	                      walletValues: (proof as any)?.walletValues ?? null
-	                    },
-	                    (_k, v) => (typeof v === "bigint" ? v.toString() : v),
-	                    2
-	                  )
-	                : "n/a"}
-	            </pre>
+        {/* ── Raw logs (collapsed) ── */}
+        <details className="rounded-xl border border-border bg-surface/60 backdrop-blur-sm mt-2">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-tertiary hover:text-text-secondary transition-colors">
+            Raw Logs
+          </summary>
+          <div suppressHydrationWarning className="px-3 pb-3 grid gap-3">
+            {[
+              { title: "Agent", data: plan ? JSON.stringify(plan, (_k: string, v: unknown) => (typeof v === "bigint" ? (v as bigint).toString() : v), 2) : "n/a" },
+              { title: "Deposit", data: depositRun ? String(depositRun?.stderr || depositRun?.stdout || "").slice(-2400) : "n/a" },
+              { title: "CRE", data: creRun ? String(creRun?.stderr || creRun?.stdout || "").slice(-2400) : "n/a" },
+              { title: "Reset", data: resetRun ? String(resetRun?.stderr || resetRun?.stdout || "").slice(-2400) : "n/a" },
+            ].map((log) => (
+              <div key={log.title}>
+                <div className="text-xs text-text-secondary mb-1.5">{log.title}</div>
+                <pre className="tracePre mono">{log.data}</pre>
+              </div>
+            ))}
           </div>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>Agent output</div>
-            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-              {plan ? JSON.stringify(plan, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2) : "n/a"}
-            </pre>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>Deposit output</div>
-            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-              {depositRun
-                ? [
-                    depositRun?.summary ? `Summary: ${depositRun.summary}` : null,
-                    depositRun?.txSent != null ? `txSent: ${String(depositRun.txSent)}` : null,
-                    Array.isArray(depositRun?.attempts) ? `attempts: ${depositRun.attempts.length}` : null,
-                    "",
-                    String(depositRun?.stderr || depositRun?.stdout || "").slice(-2400)
-                  ]
-                    .filter((l) => l != null)
-                    .join("\n")
-                : "n/a"}
-            </pre>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>CRE run output</div>
-            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-              {creRun ? String(creRun?.stderr || creRun?.stdout || "").slice(-2400) : "n/a"}
-            </pre>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>Reset output</div>
-            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-              {resetRun ? String(resetRun?.stderr || resetRun?.stdout || "").slice(-2400) : "n/a"}
-            </pre>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.2px", color: "rgba(255,255,255,0.86)" }}>Swap output</div>
-            <pre style={{ marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.22)", color: "rgba(255,255,255,0.72)", fontSize: 12, lineHeight: 1.35, overflowX: "auto" }}>
-              {swapRun ? String(swapRun?.stderr || swapRun?.stdout || "").slice(-2400) : "n/a"}
-            </pre>
-          </div>
-        </div>
-      </details>
-    </main>
+        </details>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-3 text-center">
+        <p className="text-[10px] text-text-tertiary/50">BorrowBot — CRE Hackathon 2026 · Base · Aave V3</p>
+      </footer>
+    </div>
   );
 }
