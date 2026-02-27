@@ -428,6 +428,10 @@ export default function HomePage() {
               </Link>
               <a
                 href="#process"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById("process")?.scrollIntoView({ behavior: "smooth" });
+                }}
                 className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-2.5 text-sm font-medium text-text-secondary transition-all hover:border-border-strong hover:text-text-primary"
               >
                 View Process
@@ -438,7 +442,7 @@ export default function HomePage() {
       </header>
 
       {/* ─── Process Timeline ─── */}
-      <main className="mx-auto max-w-5xl px-6" id="process">
+      <main className="mx-auto max-w-5xl px-6" id="process" style={{ scrollMarginTop: "3rem" }}>
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
