@@ -280,20 +280,26 @@ async function main() {
   const tokenWeth = await ethers.getContractAt(erc20Abi, weth, managedSigner);
   const tokenCbbtc = await ethers.getContractAt(erc20Abi, cbbtc, managedSigner);
 
-  const [usdcDec, usdcSym] = await Promise.all([tokenUsdc.decimals(), tokenUsdc.symbol()]);
-  const [wethDec, wethSym] = await Promise.all([tokenWeth.decimals(), tokenWeth.symbol()]);
-  const [btcDec, btcSym] = await Promise.all([tokenCbbtc.decimals(), tokenCbbtc.symbol()]);
+  const [usdcDec, usdcSym, wethDec, wethSym, btcDec, btcSym] = await Promise.all([
+    tokenUsdc.decimals(), tokenUsdc.symbol(),
+    tokenWeth.decimals(), tokenWeth.symbol(),
+    tokenCbbtc.decimals(), tokenCbbtc.symbol()
+  ]);
 
   const depositAmount: bigint = amountRaw
     ? BigInt(amountRaw)
     : (parseUnits(amountHuman, usdcDec) as unknown as bigint);
 
   LAST_STAGE = "balances";
-  const balUsdc = (await tokenUsdc.balanceOf(signer.address)) as bigint;
+  const [balUsdc, balWethBefore, balBtcBefore] = await Promise.all([
+    tokenUsdc.balanceOf(signer.address) as Promise<bigint>,
+    tokenWeth.balanceOf(signer.address) as Promise<bigint>,
+    tokenCbbtc.balanceOf(signer.address) as Promise<bigint>
+  ]);
   console.log("Balances (before):");
   console.log(`- ${usdcSym}:  ${formatTokenAmount(balUsdc, Number(usdcDec))}`);
-  console.log(`- ${wethSym}:  ${formatTokenAmount((await tokenWeth.balanceOf(signer.address)) as bigint, Number(wethDec))}`);
-  console.log(`- ${btcSym}:   ${formatTokenAmount((await tokenCbbtc.balanceOf(signer.address)) as bigint, Number(btcDec))}`);
+  console.log(`- ${wethSym}:  ${formatTokenAmount(balWethBefore, Number(wethDec))}`);
+  console.log(`- ${btcSym}:   ${formatTokenAmount(balBtcBefore, Number(btcDec))}`);
   console.log("");
 
   if (depositAmount <= 0n) throw new Error("Deposit amount must be > 0");
@@ -514,12 +520,16 @@ async function main() {
     await supply(usdc, tokenUsdc, usdcSym, Number(usdcDec), depositAmount);
 
     LAST_STAGE = "balances-after";
-    const balUsdcAfter = (await tokenUsdc.balanceOf(signer.address)) as bigint;
+    const [balUsdcAfter, balWethAfter, balBtcAfter] = await Promise.all([
+      tokenUsdc.balanceOf(signer.address) as Promise<bigint>,
+      tokenWeth.balanceOf(signer.address) as Promise<bigint>,
+      tokenCbbtc.balanceOf(signer.address) as Promise<bigint>
+    ]);
     console.log("");
     console.log("Balances (after):");
     console.log(`- ${usdcSym}:  ${formatTokenAmount(balUsdcAfter, Number(usdcDec))}`);
-    console.log(`- ${wethSym}:  ${formatTokenAmount((await tokenWeth.balanceOf(signer.address)) as bigint, Number(wethDec))}`);
-    console.log(`- ${btcSym}:   ${formatTokenAmount((await tokenCbbtc.balanceOf(signer.address)) as bigint, Number(btcDec))}`);
+    console.log(`- ${wethSym}:  ${formatTokenAmount(balWethAfter, Number(wethDec))}`);
+    console.log(`- ${btcSym}:   ${formatTokenAmount(balBtcAfter, Number(btcDec))}`);
     console.log("Done.");
     return;
   }
@@ -533,20 +543,29 @@ async function main() {
   console.log(`- swap to BTC: ${formatTokenAmount(btcIn, Number(usdcDec))} ${usdcSym}`);
   console.log("");
 
+  // Swaps must stay sequential: both spend from the same USDC balance and each uses
+  // balanceOf before/after to measure received tokens — concurrent execution breaks that.
   const gotWeth = await swapUsdcTo(weth, tokenWeth, wethSym, Number(wethDec), ethIn);
   const gotBtc = await swapUsdcTo(cbbtc, tokenCbbtc, btcSym, Number(btcDec), btcIn);
 
   console.log("");
-  await supply(weth, tokenWeth, wethSym, Number(wethDec), gotWeth);
-  await supply(cbbtc, tokenCbbtc, btcSym, Number(btcDec), gotBtc);
+  // Supplies are independent (different tokens) — safe to parallelize.
+  await Promise.all([
+    supply(weth, tokenWeth, wethSym, Number(wethDec), gotWeth),
+    supply(cbbtc, tokenCbbtc, btcSym, Number(btcDec), gotBtc)
+  ]);
 
   LAST_STAGE = "balances-after";
-  const balUsdcAfter = (await tokenUsdc.balanceOf(signer.address)) as bigint;
+  const [balUsdcAfter2, balWethAfter2, balBtcAfter2] = await Promise.all([
+    tokenUsdc.balanceOf(signer.address) as Promise<bigint>,
+    tokenWeth.balanceOf(signer.address) as Promise<bigint>,
+    tokenCbbtc.balanceOf(signer.address) as Promise<bigint>
+  ]);
   console.log("");
   console.log("Balances (after):");
-  console.log(`- ${usdcSym}:  ${formatTokenAmount(balUsdcAfter, Number(usdcDec))}`);
-  console.log(`- ${wethSym}:  ${formatTokenAmount((await tokenWeth.balanceOf(signer.address)) as bigint, Number(wethDec))}`);
-  console.log(`- ${btcSym}:   ${formatTokenAmount((await tokenCbbtc.balanceOf(signer.address)) as bigint, Number(btcDec))}`);
+  console.log(`- ${usdcSym}:  ${formatTokenAmount(balUsdcAfter2, Number(usdcDec))}`);
+  console.log(`- ${wethSym}:  ${formatTokenAmount(balWethAfter2, Number(wethDec))}`);
+  console.log(`- ${btcSym}:   ${formatTokenAmount(balBtcAfter2, Number(btcDec))}`);
   console.log("Done.");
 }
 

@@ -705,9 +705,22 @@ async function main() {
       return 0n;
     }
     const before = (await token.balanceOf(signer.address)) as bigint;
-    console.log(`[withdraw] ${label}: withdrawing all collateral to wallet...`);
-    // Some pools can revert on MAX_UINT256 sentinel; use the explicit aToken balance.
-    const tx = await vault.withdrawCollateral(assetAddr, balance, signer.address);
+    console.log(`[withdraw] ${label}: withdrawing all collateral to wallet (balance=${balance.toString()})...`);
+    // Try exact balance first, then balance-1 (Aave rounding), then type(uint256).max sentinel.
+    let tx: any;
+    const MAX_UINT256 = (1n << 256n) - 1n;
+    const attempts: [string, bigint][] = [["exact", balance], ["balance-1", balance > 1n ? balance - 1n : balance], ["max", MAX_UINT256]];
+    for (const [desc, amt] of attempts) {
+      try {
+        tx = await vault.withdrawCollateral(assetAddr, amt, signer.address, { gasLimit: 500_000 });
+        console.log(`[withdraw] ${label} (${desc}) tx:`, tx.hash);
+        break;
+      } catch (e: any) {
+        console.log(`[withdraw] ${label} (${desc}) failed: ${e?.shortMessage || e?.reason || e?.message || "unknown"}`);
+        tx = null;
+      }
+    }
+    if (!tx) throw new Error(`Failed to withdraw ${label} collateral after all attempts`);
     console.log(`[withdraw] ${label} tx:`, tx.hash);
     await tx.wait();
     const after = (await token.balanceOf(signer.address)) as bigint;

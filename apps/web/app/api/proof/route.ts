@@ -250,41 +250,42 @@ async function fetchProof(payee: `0x${string}`) {
     withRpcFallback((c) => c.readContract({ address: receiver, abi: ReceiverAbi, functionName: "forwarder" }), (v) => String(v).toLowerCase() !== ZERO_ADDRESS)
   ]);
 
-  const [pool, priceOracle] = await Promise.all([
+  // --- Round 2: pool + oracle + USDC metadata + all wallet balances (all independent) ---
+  const [pool, priceOracle, usdcDecimals, usdcSymbol, payeeBalance,
+    vaultUsdc, vaultWeth, vaultCbbtc, payeeWeth, payeeCbbtc] = await Promise.all([
     withRpcFallback((c) => c.readContract({ address: addressesProvider, abi: PoolAddressesProviderAbi, functionName: "getPool" }), (v) => String(v).toLowerCase() !== ZERO_ADDRESS),
     withRpcFallback(
       (c) => c.readContract({ address: addressesProvider, abi: PoolAddressesProviderAbi, functionName: "getPriceOracle" }),
       (v) => String(v).toLowerCase() !== ZERO_ADDRESS
-    )
-  ]);
-  const baseCurrencyUnit = await withRpcFallback(
-    (c) => c.readContract({ address: priceOracle, abi: PriceOracleAbi, functionName: "BASE_CURRENCY_UNIT" }),
-    (v) => typeof v === "bigint" && v > 0n && isReasonableBaseCurrencyUnit(v)
-  );
-  const baseDecimals = baseDecimalsFromUnit(BigInt(baseCurrencyUnit));
-
-  const userAccountDataRaw = await withRpcFallback((c) => c.readContract({ address: pool, abi: PoolAbi, functionName: "getUserAccountData", args: [vault] }));
-  const userAccountData = { totalCollateralBase: userAccountDataRaw[0], totalDebtBase: userAccountDataRaw[1], healthFactor: userAccountDataRaw[5] };
-
-  const [usdcDecimals, usdcSymbol, payeeBalance] = await Promise.all([
+    ),
     withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "decimals" })),
     withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "symbol" })),
-    withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "balanceOf", args: [payee] }))
-  ]);
-
-  const usdcPriceBase = await withRpcFallback((c) => c.readContract({ address: priceOracle, abi: PriceOracleAbi, functionName: "getAssetPrice", args: [usdc] }), acceptPriceInRange(BigInt(baseCurrencyUnit) / 2n, BigInt(baseCurrencyUnit) * 2n));
-
-  const usdcReserve = await withRpcFallback((c) => c.readContract({ address: pool, abi: PoolAbi, functionName: "getReserveData", args: [usdc] }));
-  const varDebtToken = usdcReserve.variableDebtTokenAddress;
-  const vaultDebt = await withRpcFallback((c) => c.readContract({ address: varDebtToken, abi: Erc20Abi, functionName: "balanceOf", args: [vault] }));
-
-  const [vaultUsdc, vaultWeth, vaultCbbtc, payeeUsdc, payeeWeth, payeeCbbtc] = await Promise.all([
+    withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "balanceOf", args: [payee] })),
     withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "balanceOf", args: [vault] })),
     withRpcFallback((c) => c.readContract({ address: DEFAULT_WETH as `0x${string}`, abi: Erc20Abi, functionName: "balanceOf", args: [vault] })),
     withRpcFallback((c) => c.readContract({ address: DEFAULT_CBBTC as `0x${string}`, abi: Erc20Abi, functionName: "balanceOf", args: [vault] })),
-    withRpcFallback((c) => c.readContract({ address: usdc, abi: Erc20Abi, functionName: "balanceOf", args: [payee] })),
     withRpcFallback((c) => c.readContract({ address: DEFAULT_WETH as `0x${string}`, abi: Erc20Abi, functionName: "balanceOf", args: [payee] })),
     withRpcFallback((c) => c.readContract({ address: DEFAULT_CBBTC as `0x${string}`, abi: Erc20Abi, functionName: "balanceOf", args: [payee] }))
+  ]);
+  const payeeUsdc = payeeBalance; // same value, avoid duplicate fetch
+
+  // --- Round 3: things that depend on pool/oracle ---
+  const [baseCurrencyUnit, userAccountDataRaw, usdcReserve] = await Promise.all([
+    withRpcFallback(
+      (c) => c.readContract({ address: priceOracle, abi: PriceOracleAbi, functionName: "BASE_CURRENCY_UNIT" }),
+      (v) => typeof v === "bigint" && v > 0n && isReasonableBaseCurrencyUnit(v)
+    ),
+    withRpcFallback((c) => c.readContract({ address: pool, abi: PoolAbi, functionName: "getUserAccountData", args: [vault] })),
+    withRpcFallback((c) => c.readContract({ address: pool, abi: PoolAbi, functionName: "getReserveData", args: [usdc] }))
+  ]);
+  const baseDecimals = baseDecimalsFromUnit(BigInt(baseCurrencyUnit));
+  const userAccountData = { totalCollateralBase: userAccountDataRaw[0], totalDebtBase: userAccountDataRaw[1], healthFactor: userAccountDataRaw[5] };
+
+  // --- Round 4: usdcPriceBase (needs baseCurrencyUnit) + vault debt (needs usdcReserve) ---
+  const varDebtToken = usdcReserve.variableDebtTokenAddress;
+  const [usdcPriceBase, vaultDebt] = await Promise.all([
+    withRpcFallback((c) => c.readContract({ address: priceOracle, abi: PriceOracleAbi, functionName: "getAssetPrice", args: [usdc] }), acceptPriceInRange(BigInt(baseCurrencyUnit) / 2n, BigInt(baseCurrencyUnit) * 2n)),
+    withRpcFallback((c) => c.readContract({ address: varDebtToken, abi: Erc20Abi, functionName: "balanceOf", args: [vault] }))
   ]);
 
   const usdcScale = 10n ** BigInt(Number(usdcDecimals));

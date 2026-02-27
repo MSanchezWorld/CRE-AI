@@ -16722,7 +16722,8 @@ var ConfigSchema3 = exports_external.object({
   borrowAsset: exports_external.string(),
   planTtlSeconds: exports_external.number().int().positive().default(300),
   gasLimit: exports_external.string().min(1),
-  agentUrl: exports_external.string().default("")
+  agentUrl: exports_external.string().default(""),
+  agentSecret: exports_external.string().default("")
 });
 var BorrowVaultAbi = [
   {
@@ -16775,13 +16776,16 @@ function decodeSpendRequest(payload) {
   const request = decodeJson(payload.input);
   return SpendRequestSchema.parse(request);
 }
-function fetchAgentPlan(sendRequester, agentUrl, input) {
+function fetchAgentPlan(sendRequester, agentUrl, input, agentSecret) {
+  const headers = {
+    "content-type": "application/json"
+  };
+  if (agentSecret.trim())
+    headers["x-agent-secret"] = agentSecret.trim();
   const response = sendRequester.sendRequest({
     url: agentUrl,
     method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
+    headers,
     body: base64Json(input)
   }).result();
   if (!ok(response)) {
@@ -16868,7 +16872,7 @@ function initWorkflow(cfg) {
             currentNonce: currentNonce.toString()
           }
         };
-        plan = httpClient.sendRequest(runtime2, fetchAgentPlan, consensusIdenticalAggregation())(cfg.agentUrl.trim(), agentInput).result();
+        plan = httpClient.sendRequest(runtime2, fetchAgentPlan, consensusIdenticalAggregation())(cfg.agentUrl.trim(), agentInput, cfg.agentSecret).result();
       } else {
         plan = {
           borrowAsset,

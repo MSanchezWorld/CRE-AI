@@ -52,18 +52,34 @@ function loadDotEnvFile(envPath: string): Record<string, string> {
   return out;
 }
 
+function patchAgentUrlInConfig(repoRoot: string, currentOrigin: string) {
+  const configPath = path.join(repoRoot, "cre/workflows/borrowbot-borrow-and-pay/config.mainnet.json");
+  if (!fs.existsSync(configPath)) return;
+  try {
+    const raw = fs.readFileSync(configPath, "utf-8");
+    const cfg = JSON.parse(raw);
+    const desired = `${currentOrigin}/api/agent/plan`;
+    if (cfg.agentUrl !== desired) {
+      cfg.agentUrl = desired;
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n");
+    }
+  } catch { /* best-effort */ }
+}
+
 async function runCreWorkflow({
   repoRoot,
   payee,
   borrowAmount,
   depositAmount,
-  broadcast
+  broadcast,
+  currentOrigin
 }: {
   repoRoot: string;
   payee: string;
   borrowAmount: string;
   depositAmount: string | null;
   broadcast: boolean;
+  currentOrigin: string;
 }) {
   const creBin = process.env.CRE_BIN?.trim() || path.join(os.homedir(), ".cre", "bin", "cre");
   if (!fs.existsSync(creBin)) {
@@ -88,6 +104,9 @@ async function runCreWorkflow({
     "--http-payload",
     httpPayload
   ];
+
+  // Ensure the CRE config points to the current server (port may differ from default 3000).
+  patchAgentUrlInConfig(repoRoot, currentOrigin);
 
   const repoEnv = loadDotEnvFile(path.join(repoRoot, ".env"));
   const env = { ...process.env, ...repoEnv };
@@ -152,7 +171,9 @@ export async function POST(req: Request) {
     }
 
     const repoRoot = findRepoRoot();
-    const res = await runCreWorkflow({ repoRoot, payee, borrowAmount, depositAmount, broadcast });
+    const reqUrl = new URL(req.url);
+    const currentOrigin = `${reqUrl.protocol}//${reqUrl.host}`;
+    const res = await runCreWorkflow({ repoRoot, payee, borrowAmount, depositAmount, broadcast, currentOrigin });
 
     const ok = res.exitCode === 0;
     return NextResponse.json({ ok, ...res }, { status: ok ? 200 : 500 });
