@@ -8,41 +8,41 @@ import { motion } from "motion/react";
 const FLOW_STEPS = [
   {
     num: "01",
-    title: "Agent Requests a Payment",
-    subtitle: "Off-chain trigger",
-    color: "accent" as const,
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
-      </svg>
-    ),
-    details: [
-      "An AI agent needs to pay for a service — compute, API calls, infrastructure, another agent.",
-      "It specifies how much USDC to borrow from its own treasury and who to pay.",
-      "This triggers an HTTP request to the Chainlink CRE workflow.",
-    ],
-    labels: ["HTTP Trigger", "Spend Request", "Agent-Initiated"],
-  },
-  {
-    num: "02",
     title: "Fund the Agent Treasury",
     subtitle: "On-chain (Base)",
-    color: "accent2" as const,
+    color: "accent" as const,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
       </svg>
     ),
     details: [
-      "The agent's wallet deposits WETH, cbBTC, or USDC into its BorrowVault contract.",
-      "Vault supplies assets to Aave V3 — collateral earns yield while backing future borrows.",
-      "Optional: USDC is swapped 50/50 into WETH + cbBTC via Uniswap V3 before deposit.",
+      "Agent deposits USDC into its BorrowVault, swapped 50/50 into WETH + cbBTC.",
+      "Vault supplies assets to Aave V3 — collateral earns yield automatically.",
+      "The treasury grows while the agent operates. No action needed.",
     ],
-    labels: ["BorrowVault", "Aave V3 Pool", "Uniswap V3"],
+    labels: ["BorrowVault", "Aave V3 Pool", "Yield-Earning"],
+  },
+  {
+    num: "02",
+    title: "Agent Proposes a Spend Plan",
+    subtitle: "You approve",
+    color: "accent2" as const,
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+      </svg>
+    ),
+    details: [
+      "The agent needs to pay for a service — compute, APIs, infrastructure, another agent.",
+      "It submits a spend plan: how much USDC to borrow, and who to pay.",
+      "You review the plan and approve it. The agent cannot move funds without your approval.",
+    ],
+    labels: ["Spend Plan", "Owner Approval", "Human-in-the-Loop"],
   },
   {
     num: "03",
-    title: "CRE Verifies the Spend Plan",
+    title: "CRE Verifies the Plan",
     subtitle: "Chainlink DON",
     color: "purple" as const,
     icon: (
@@ -51,12 +51,12 @@ const FLOW_STEPS = [
       </svg>
     ),
     details: [
-      "CRE reads vault state on-chain (nonce, paused status).",
-      "DON nodes call the AI agent for a spend plan — all nodes must reach consensus.",
-      "CRE validates the plan: addresses, amount caps, nonce, and asset match.",
-      "DON signs the plan report and delivers it via the Keystone Forwarder.",
+      "After your approval, CRE's decentralized network independently verifies the plan.",
+      "DON nodes check: allowlisted payee, amount within limits, correct nonce, safe health factor.",
+      "All nodes must reach consensus. No single point of trust.",
+      "DON signs the verified report and delivers it on-chain via the Keystone Forwarder.",
     ],
-    labels: ["Consensus Read", "Agent Call", "Plan Validation", "DON Signature"],
+    labels: ["Decentralized Verification", "Consensus", "DON Signature"],
   },
   {
     num: "04",
@@ -69,14 +69,12 @@ const FLOW_STEPS = [
       </svg>
     ),
     details: [
-      "BorrowBotReceiver verifies the DON signature and decodes the plan.",
-      "BorrowVault enforces 12+ safety checks: allowlists, nonce, expiry, cooldown, limits.",
-      "Pre-borrow health factor check (≥ 1.6) — reads Aave collateral/debt.",
-      "Aave V3 issues variable-rate USDC debt, transfers USDC to the vault.",
-      "Post-borrow health factor re-check — ensures the treasury stays safe.",
-      "USDC is sent directly to the payee address.",
+      "BorrowBotReceiver verifies the DON signature and decodes the verified plan.",
+      "BorrowVault enforces 12+ on-chain safety checks: allowlists, nonce, expiry, cooldown, limits.",
+      "Health factor checked before and after borrow — the treasury stays safe.",
+      "Aave V3 issues variable-rate USDC debt. USDC goes directly to the payee.",
     ],
-    labels: ["12 Safety Checks", "Aave Borrow", "Health Factor ≥ 1.6", "Pay Payee"],
+    labels: ["12 Safety Checks", "Aave Borrow", "Health Factor Guard", "Pay Payee"],
   },
   {
     num: "05",
@@ -91,7 +89,7 @@ const FLOW_STEPS = [
     details: [
       "USDC arrives at the payee wallet — verifiable on Basescan.",
       "Vault nonce increments, proving execution completed.",
-      "Collateral remains in Aave earning yield — the agent never sold its crypto.",
+      "Collateral stays in Aave earning yield — the agent never sold its assets.",
     ],
     labels: ["USDC Received", "Nonce Updated", "Treasury Intact"],
   },
@@ -405,16 +403,17 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
-              Agents Own Treasuries.
+              Hold Assets. Earn Yield.
               <br />
               <span className="bg-gradient-to-r from-accent via-purple to-accent2 bg-clip-text text-transparent">
-                CRE Makes Them Spend.
+                Borrow to Spend.
               </span>
             </h1>
 
             <p className="text-text-secondary text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-8">
-              AI agents hold crypto in their own on-chain treasuries and borrow USDC to pay for services —
-              verified by Chainlink CRE, secured by Aave V3, all on Base.
+              The wealthy never sell — they borrow against what they own. Now AI agents do the same.
+              Hold BTC &amp; ETH, earn yield on Aave V3, borrow USDC to pay for services.
+              You approve every spend. Chainlink CRE verifies it.
             </p>
 
             <div className="flex items-center justify-center gap-4">
@@ -448,10 +447,10 @@ export default function HomePage() {
         >
           <p className="text-accent text-xs font-medium tracking-widest uppercase mb-2">The Process</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            How an Agent Pays for Services
+            How It Works
           </h2>
           <p className="text-text-secondary text-sm mt-3 max-w-lg mx-auto">
-            Each step is verified on-chain. The agent never sells its crypto — it borrows against its own treasury.
+            You approve every spend. CRE verifies it. The agent never sells its assets — it borrows against its own treasury.
           </p>
         </motion.div>
 
@@ -480,8 +479,7 @@ export default function HomePage() {
               See it in Action
             </h2>
             <p className="text-text-secondary text-sm mb-8 max-w-md mx-auto">
-              Run the full agent treasury flow on Base mainnet.
-              Fund a treasury, borrow USDC, pay a service provider — all verified on-chain.
+              Approve a spend plan, watch CRE verify it, and see the payment execute on Base mainnet.
             </p>
             <Link
               href="/demo"

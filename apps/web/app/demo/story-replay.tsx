@@ -268,11 +268,11 @@ export default function StoryReplay() {
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight leading-tight mb-3">
-            AI agents that earn,<br />borrow, and pay
+            Hold assets. Earn yield.<br />Borrow to spend.
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed mb-8">
-            Watch how an agent builds a self-sustaining treasury on Aave V3 —
-            and how <span className="text-accent font-medium">you control every spend</span>.
+            The wealthy never sell — they borrow against what they own.
+            Watch an AI agent do the same, and <span className="text-accent font-medium">you approve every spend</span>.
           </p>
 
           <button
