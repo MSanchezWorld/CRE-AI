@@ -278,21 +278,21 @@ function SafetySection() {
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", alignItems: "stretch" }}>
         {SAFETY_LAYERS.map((layer) => {
           const c = colorMap[layer.color];
           return (
             <motion.div
               key={layer.layer}
               variants={fadeUp}
-              className={`rounded-xl border border-border bg-surface/60 backdrop-blur-sm p-6`}
+              className="rounded-xl border border-border bg-surface/60 backdrop-blur-sm p-6 flex flex-col items-center text-center"
             >
-              <div className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${c.bg} ${c.text} border ${c.border} mb-4`}>
+              <div className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${c.bg} ${c.text} border ${c.border} mb-5`}>
                 {layer.layer}
               </div>
-              <ul className="space-y-2.5">
+              <ul className="space-y-2.5 w-full">
                 {layer.checks.map((check) => (
-                  <li key={check} className="flex gap-2.5 text-sm text-text-secondary">
+                  <li key={check} className="flex items-start gap-2.5 text-[13px] text-text-secondary text-left">
                     <svg viewBox="0 0 16 16" fill="none" className={`w-4 h-4 ${c.text} shrink-0 mt-0.5`}>
                       <path d="M6 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
