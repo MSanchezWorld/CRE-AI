@@ -1485,7 +1485,7 @@ function LiveDemo() {
 
       {/* Footer */}
       <footer className="py-3 text-center">
-        <p className="text-[10px] text-text-tertiary/50">BorrowBot — CRE Hackathon 2026 · Base · Aave V3</p>
+        <p className="text-[10px] text-text-tertiary/50">Agent Treasury — CRE Hackathon 2026 · Base · Aave V3</p>
       </footer>
     </div>
   );
