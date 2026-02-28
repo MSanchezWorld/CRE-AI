@@ -59,6 +59,7 @@ type ProofData = {
   collateralUsd: string;
   debtUsd: string;
   healthFactor: string;
+  depositTxHash: string | null;
   borrowTxHash: string | null;
   creTxHash: string | null;
   vaultAddress: string;
@@ -189,6 +190,7 @@ export default function StoryReplay() {
             collateralUsd: fmt(collBase, baseDec),
             debtUsd: fmt(debtBase, baseDec),
             healthFactor: debtBase === 0n ? "∞" : (Number(hf) / 1e18).toFixed(2),
+            depositTxHash: p?.lastSupply?.txHash ?? null,
             borrowTxHash: p?.lastBorrowAndPay?.txHash ?? null,
             creTxHash: p?.lastReceiverReport?.txHash ?? null,
             vaultAddress: p?.vault?.address ?? DEFAULT_VAULT,
@@ -640,6 +642,11 @@ export default function StoryReplay() {
                         <span className="pill">HF <span className="mono">{proof.healthFactor}</span></span>
                       </div>
                       <div className="flex gap-2 flex-wrap">
+                        {proof.depositTxHash && (
+                          <a href={`${BASESCAN}/tx/${proof.depositTxHash}`} target="_blank" rel="noreferrer" className="pill">
+                            Deposit tx <span className="mono">{shortHex(proof.depositTxHash, 8, 6)}</span>
+                          </a>
+                        )}
                         {proof.creTxHash && (
                           <a href={`${BASESCAN}/tx/${proof.creTxHash}`} target="_blank" rel="noreferrer" className="pill">
                             CRE tx <span className="mono">{shortHex(proof.creTxHash, 8, 6)}</span>

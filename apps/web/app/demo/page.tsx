@@ -108,6 +108,10 @@ type Proof = {
     borrowAmount: bigint;
     payee: string;
   };
+  lastSupply?: {
+    txHash: string;
+    blockNumber: bigint;
+  };
 };
 
 // Prevent runtime crashes when something (our code or a library) calls JSON.stringify on
@@ -246,7 +250,7 @@ export default function DemoPage() {
 
 function LiveDemo() {
   const [payee, setPayee] = useState(DEFAULT_PAYEE);
-  const [amountUsdc, setAmountUsdc] = useState("1.00");
+  const [amountUsdc, setAmountUsdc] = useState("4.00");
   const [depositUsdc, setDepositUsdc] = useState("10.00");
   const [depositMode, setDepositMode] = useState<"eth_btc" | "usdc">("eth_btc");
   const [presetId, setPresetId] = useState<"happy" | "non_allowlisted" | "borrow_too_much" | "simulate_only">("happy");
@@ -479,7 +483,7 @@ function LiveDemo() {
       setPayee(DEFAULT_PAYEE);
       setDepositUsdc("10.00");
       setDepositMode("eth_btc");
-      setAmountUsdc("1.00");
+      setAmountUsdc("4.00");
       setBroadcast(true);
       return;
     }
@@ -488,7 +492,7 @@ function LiveDemo() {
       setDepositUsdc("10.00");
       // Avoid swaps in failure presets; fewer moving parts.
       setDepositMode("usdc");
-      setAmountUsdc("1.00");
+      setAmountUsdc("4.00");
       setBroadcast(true);
       return;
     }
@@ -505,7 +509,7 @@ function LiveDemo() {
     setPayee(DEFAULT_PAYEE);
     setDepositUsdc("10.00");
     setDepositMode("usdc");
-    setAmountUsdc("1.00");
+    setAmountUsdc("4.00");
     setBroadcast(false);
   }
 
@@ -1145,8 +1149,8 @@ function LiveDemo() {
     traceRequestedBorrow != null && receiverReportBorrowAmount != null ? receiverReportBorrowAmount === traceRequestedBorrow : null;
 
   return (
-    <div className="min-h-screen">
-      <main className="mx-auto max-w-5xl px-5 pt-5 pb-12">
+    <div className="min-h-screen flex flex-col justify-center">
+      <main className="mx-auto max-w-5xl w-full px-5 py-8">
         {/* ── Header bar ── */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -1395,9 +1399,9 @@ function LiveDemo() {
         </div>
 
         {/* ── Tx links ── */}
-        {(proof?.lastBorrowAndPay || proof?.lastReceiverReport || depositSupplyTx) ? (
+        {(proof?.lastBorrowAndPay || proof?.lastReceiverReport || depositSupplyTx || proof?.lastSupply) ? (
           <div className="flex gap-1.5 flex-wrap mt-2">
-            {depositSupplyTx ? <a href={`${BASESCAN}/tx/${depositSupplyTx}`} target="_blank" rel="noreferrer" className="pill">Deposit tx <span className="mono">{shortHex(depositSupplyTx, 8, 6)}</span></a> : null}
+            {(depositSupplyTx || proof?.lastSupply?.txHash) ? <a href={`${BASESCAN}/tx/${depositSupplyTx || proof?.lastSupply?.txHash}`} target="_blank" rel="noreferrer" className="pill">Deposit tx <span className="mono">{shortHex(depositSupplyTx || proof?.lastSupply?.txHash, 8, 6)}</span></a> : null}
             {proof?.lastReceiverReport ? <a href={`${BASESCAN}/tx/${proof.lastReceiverReport.txHash}`} target="_blank" rel="noreferrer" className="pill">CRE tx <span className="mono">{shortHex(proof.lastReceiverReport.txHash, 8, 6)}</span></a> : null}
             {proof?.lastBorrowAndPay ? <a href={`${BASESCAN}/tx/${proof.lastBorrowAndPay.txHash}`} target="_blank" rel="noreferrer" className="pill">Borrow tx <span className="mono">{shortHex(proof.lastBorrowAndPay.txHash, 8, 6)}</span></a> : null}
           </div>

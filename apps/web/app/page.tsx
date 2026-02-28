@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
-
 /* ──────────────────────── Data ──────────────────────── */
 
 const FLOW_STEPS = [
@@ -176,17 +174,6 @@ const colorMap = {
   },
 };
 
-/* ──────────────────────── Animations ──────────────────────── */
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.12 } },
-};
-
 /* ──────────────────────── Components ──────────────────────── */
 
 function StepCard({
@@ -203,29 +190,18 @@ function StepCard({
     <div className="relative flex gap-6 md:gap-8">
       {/* Timeline line + dot */}
       <div className="flex flex-col items-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          whileInView={{ scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+        <div
           className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-xl border ${c.border} ${c.bg} ${c.text} shadow-lg ${c.glow}`}
         >
           {step.icon}
-        </motion.div>
+        </div>
         {!isLast && (
           <div className={`w-px flex-1 bg-gradient-to-b ${c.line} to-transparent min-h-8`} />
         )}
       </div>
 
       {/* Content */}
-      <motion.div
-        variants={fadeUp}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, delay: 0.05 * index }}
-        className="flex-1 pb-12"
-      >
+      <div className="flex-1 pb-12">
         <div className="flex items-baseline gap-3 mb-1">
           <span className={`font-mono text-xs ${c.text} opacity-60`}>{step.num}</span>
           <h3 className="text-lg font-semibold text-text-primary">{step.title}</h3>
@@ -254,21 +230,15 @@ function StepCard({
             ))}
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
 
 function SafetySection() {
   return (
-    <motion.section
-      variants={stagger}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
-      className="mt-32"
-    >
-      <motion.div variants={fadeUp} className="text-center mb-12">
+    <section className="mt-32">
+      <div className="text-center mb-12">
         <p className="text-amber text-xs font-medium tracking-widest uppercase mb-2">Layered Security</p>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Three Layers of Safety Checks
@@ -276,15 +246,14 @@ function SafetySection() {
         <p className="text-text-secondary text-sm mt-3 max-w-lg mx-auto">
           Every borrow passes through CRE validation, vault enforcement, and Aave protocol checks — no single point of trust.
         </p>
-      </motion.div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", alignItems: "stretch" }}>
         {SAFETY_LAYERS.map((layer) => {
           const c = colorMap[layer.color];
           return (
-            <motion.div
+            <div
               key={layer.layer}
-              variants={fadeUp}
               className="rounded-xl border border-border bg-surface/60 backdrop-blur-sm p-6 flex flex-col items-center text-center"
             >
               <div className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${c.bg} ${c.text} border ${c.border} mb-5`}>
@@ -300,33 +269,24 @@ function SafetySection() {
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
           );
         })}
       </div>
-    </motion.section>
+    </section>
   );
 }
 
 function ArchitectureDiagram() {
   return (
-    <motion.section
-      variants={stagger}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
-      className="mt-32"
-    >
-      <motion.div variants={fadeUp} className="text-center mb-12">
+    <section className="mt-32">
+      <div className="text-center mb-12">
         <p className="text-accent text-xs font-medium tracking-widest uppercase mb-2">Architecture</p>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">How the Pieces Connect</h2>
-      </motion.div>
+      </div>
 
       {/* Flow diagram */}
-      <motion.div
-        variants={fadeUp}
-        className="max-w-4xl mx-auto rounded-2xl border border-border bg-surface/40 backdrop-blur-sm p-6 sm:p-10"
-      >
+      <div className="max-w-4xl mx-auto rounded-2xl border border-border bg-surface/40 backdrop-blur-sm p-6 sm:p-10">
         {/* Horizontal flow for md+, vertical for mobile */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
           {[
@@ -375,8 +335,8 @@ function ArchitectureDiagram() {
             ))}
           </div>
         </div>
-      </motion.div>
-    </motion.section>
+      </div>
+    </section>
   );
 }
 
@@ -453,12 +413,7 @@ export default function HomePage() {
 
       {/* ─── Process Timeline ─── */}
       <main className="mx-auto max-w-5xl px-6" id="process" style={{ scrollMarginTop: "3rem" }}>
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mb-12 text-center"
-        >
+        <div className="mb-12 text-center">
           <p className="text-accent text-xs font-medium tracking-widest uppercase mb-2">The Process</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             How It Works
@@ -466,7 +421,7 @@ export default function HomePage() {
           <p className="text-text-secondary text-sm mt-3 max-w-lg mx-auto">
             You approve every spend. CRE verifies it. The agent never sells its assets — it borrows against its own treasury.
           </p>
-        </motion.div>
+        </div>
 
         {/* Timeline */}
         <div className="ml-0 sm:ml-4">
@@ -482,12 +437,7 @@ export default function HomePage() {
         <ArchitectureDiagram />
 
         {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-32 mb-24 text-center"
-        >
+        <div className="mt-32 mb-24 text-center">
           <div className="rounded-2xl border border-border bg-surface/40 backdrop-blur-sm p-10 sm:p-14">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
               See it in Action
@@ -505,7 +455,7 @@ export default function HomePage() {
               </svg>
             </Link>
           </div>
-        </motion.div>
+        </div>
       </main>
 
       {/* ─── Footer ─── */}

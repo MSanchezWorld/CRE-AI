@@ -379,9 +379,15 @@ async function fetchProof(payee: `0x${string}`) {
     "event ReportProcessed(address indexed borrowAsset, uint256 borrowAmount, address indexed payee, uint256 planExpiresAt, uint256 planNonce)"
   );
 
-  const [borrowLogs, receiverLogs] = await Promise.all([
+  // Aave Supply event: emitted when collateral is supplied to the pool
+  const supplyEvent = parseAbiItem(
+    "event Supply(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referralCode)"
+  );
+
+  const [borrowLogs, receiverLogs, supplyLogs] = await Promise.all([
     withRpcFallback((c) => c.getLogs({ address: vault, event: borrowEvent, fromBlock, toBlock: "latest" })),
-    withRpcFallback((c) => c.getLogs({ address: receiver, event: receiverEvent, fromBlock, toBlock: "latest" }))
+    withRpcFallback((c) => c.getLogs({ address: receiver, event: receiverEvent, fromBlock, toBlock: "latest" })),
+    withRpcFallback((c) => c.getLogs({ address: pool, event: supplyEvent, args: { onBehalfOf: vault }, fromBlock, toBlock: "latest" })).catch(() => [] as any[])
   ]);
 
   const lastBorrow = [...borrowLogs]
@@ -389,6 +395,10 @@ async function fetchProof(payee: `0x${string}`) {
     .pop();
 
   const lastReceiver = [...receiverLogs]
+    .sort((a, b) => (a.blockNumber === b.blockNumber ? Number(a.logIndex) - Number(b.logIndex) : Number(a.blockNumber - b.blockNumber)))
+    .pop();
+
+  const lastSupply = [...supplyLogs]
     .sort((a, b) => (a.blockNumber === b.blockNumber ? Number(a.logIndex) - Number(b.logIndex) : Number(a.blockNumber - b.blockNumber)))
     .pop();
 
@@ -429,6 +439,9 @@ async function fetchProof(payee: `0x${string}`) {
           const args = lastReceiver.args as unknown as { planNonce: bigint; borrowAmount: bigint; payee: `0x${string}` };
           return { txHash: lastReceiver.transactionHash, blockNumber: lastReceiver.blockNumber, planNonce: args.planNonce, borrowAmount: args.borrowAmount, payee: args.payee };
         })()
+      : undefined,
+    lastSupply: lastSupply
+      ? { txHash: lastSupply.transactionHash, blockNumber: lastSupply.blockNumber }
       : undefined
   };
 }
