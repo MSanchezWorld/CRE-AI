@@ -392,11 +392,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute -top-20 left-1/3 h-[300px] w-[400px] rounded-full bg-purple/[0.06] blur-3xl" />
 
         <div className="relative mx-auto max-w-3xl px-6 pt-24 pb-16 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
+          <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 backdrop-blur-sm px-4 py-1.5 mb-6">
               <span className="h-1.5 w-1.5 rounded-full bg-accent2 animate-pulse" />
               <span className="text-xs font-medium text-text-secondary">Chainlink CRE Hackathon 2026</span>
@@ -437,18 +433,13 @@ export default function HomePage() {
                 View Process
               </a>
             </div>
-          </motion.div>
+          </div>
         </div>
       </header>
 
       {/* ─── Demo Video ─── */}
       <section className="mx-auto max-w-4xl px-6 pb-14" style={{ paddingTop: 0, marginTop: "-10px" }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="rounded-2xl border border-border bg-surface/40 backdrop-blur-sm overflow-hidden"
-        >
+        <div className="rounded-2xl border border-border bg-surface/40 backdrop-blur-sm overflow-hidden">
           {/* Replace this placeholder with: <video src="/demo.mp4" ... /> or an iframe */}
           <div className="aspect-video flex flex-col items-center justify-center gap-3 bg-black/20">
             <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12 text-text-tertiary/40">
@@ -457,7 +448,7 @@ export default function HomePage() {
             </svg>
             <p className="text-sm text-text-tertiary/60">Demo video coming soon</p>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ─── Process Timeline ─── */}
