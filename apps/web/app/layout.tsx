@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`dark ${inter.variable}`}>
-      <body className="bg-background text-text-primary font-sans antialiased">
+      <body className="bg-background text-text-primary font-sans antialiased" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
