@@ -522,6 +522,9 @@ export default function HomePage() {
         <p className="text-xs text-text-tertiary">
           BorrowBot — Chainlink CRE Hackathon 2026 · Agents with Treasuries · Built on Base · Aave V3
         </p>
+        <p className="text-xs text-text-tertiary/60 mt-2">
+          Built by Miguel Sanchez · <a href="https://github.com/MSanchezWorld/agent-treasury" target="_blank" rel="noreferrer" className="hover:text-text-secondary transition-colors">GitHub</a> · <a href="mailto:miguel@stackit.ai" className="hover:text-text-secondary transition-colors">miguel@stackit.ai</a>
+        </p>
       </footer>
     </div>
   );
